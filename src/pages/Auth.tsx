@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStationStore, domainConfig, type Domain } from '@/store/useStationStore';
-import { supabase, formatAuthError } from '@/integrations/supabase/client';
+import { supabase, formatAuthError, getUrlAuthError, clearUrlAuthParams } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Cpu, Landmark, BookOpen, ArrowRight, Globe, Mail, Lock, User, Loader2, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-
 
 const domainIcons = { engineering: Cpu, commerce: Landmark, arts: BookOpen };
 
 export default function Auth() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, isLoading: authLoading, refreshProfile } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, hasCompletedOnboarding, refreshProfile, signInWithGoogle } = useAuth();
   const { domain, setDomain, language, setLanguage } = useStationStore();
 
   const [name, setName] = useState('');
@@ -31,12 +30,22 @@ export default function Auth() {
   // Where to navigate after successful authentication
   const destination = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/dashboard';
 
-  // If already authenticated, redirect immediately
+  // Detect and display any OAuth errors passed via URL hash/search on mount
+  useEffect(() => {
+    const urlError = getUrlAuthError();
+    if (urlError) {
+      setError(urlError);
+      clearUrlAuthParams();
+    }
+  }, []);
+
+  // If already authenticated, redirect appropriately
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate(destination, { replace: true });
+      const target = (!hasCompletedOnboarding && destination === '/dashboard') ? '/onboarding' : destination;
+      navigate(target, { replace: true });
     }
-  }, [isAuthenticated, authLoading, navigate, destination]);
+  }, [isAuthenticated, authLoading, hasCompletedOnboarding, navigate, destination]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,18 +158,16 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (googleLoading || loading) return;
     setGoogleLoading(true);
     setError('');
     try {
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
+      const { error: err } = await signInWithGoogle({
+        redirectTo: `${window.location.origin}/auth`,
       });
 
       if (err) {
-        setError(formatAuthError(err));
+        setError(err.message);
         setGoogleLoading(false);
       }
     } catch (err) {

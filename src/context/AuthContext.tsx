@@ -19,6 +19,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   hasCompletedOnboarding: boolean;
   isPasswordRecovery: boolean;
+  signInWithGoogle: (options?: { redirectTo?: string }) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: (userId: string) => Promise<boolean>;
   updateProfile: (updates: UpdateProfileData) => Promise<{ error: Error | null }>;
@@ -35,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   hasCompletedOnboarding: false,
   isPasswordRecovery: false,
+  signInWithGoogle: async () => ({ error: null }),
   signOut: async () => {},
   refreshProfile: async () => false,
   updateProfile: async () => ({ error: null }),
@@ -317,6 +319,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async (options?: { redirectTo?: string }): Promise<{ error: Error | null }> => {
+    try {
+      const redirectUrl = options?.redirectTo || `${window.location.origin}/auth`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+      if (error) {
+        return { error: new Error(formatAuthError(error)) };
+      }
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(formatAuthError(err)) };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -326,6 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!session?.user,
         hasCompletedOnboarding,
         isPasswordRecovery,
+        signInWithGoogle,
         signOut,
         refreshProfile,
         updateProfile,

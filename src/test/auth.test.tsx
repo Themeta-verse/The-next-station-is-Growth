@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { formatAuthError, isSupabaseConfigured } from '@/integrations/supabase/client';
+import { formatAuthError, isSupabaseConfigured, getUrlAuthError, clearUrlAuthParams } from '@/integrations/supabase/client';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import * as AuthContextModule from '@/context/AuthContext';
 
@@ -69,8 +69,67 @@ describe('formatAuthError', () => {
     expect(result).toContain('Authentication > Providers');
   });
 
+  it('translates Google OAuth cancellation and access denied errors', () => {
+    const error = { message: 'access_denied: User cancelled authorization' };
+    const result = formatAuthError(error);
+    expect(result).toContain('Google sign-in was cancelled or access was denied');
+  });
+
+  it('translates popup closed by user error', () => {
+    const error = { message: 'popup_closed_by_user' };
+    const result = formatAuthError(error);
+    expect(result).toContain('Google sign-in window was closed');
+  });
+
+  it('translates expired session and JWT tokens', () => {
+    const error = { message: 'jwt expired' };
+    const result = formatAuthError(error);
+    expect(result).toContain('session has expired');
+  });
+
+  it('translates 503 service unavailable errors', () => {
+    const error = { message: '503 Service Unavailable' };
+    const result = formatAuthError(error);
+    expect(result).toContain('authentication service is temporarily unavailable');
+  });
+
   it('handles null/undefined gracefully', () => {
     expect(formatAuthError(null)).toBe('An unexpected error occurred. Please try again.');
+  });
+});
+
+describe('getUrlAuthError and clearUrlAuthParams', () => {
+  it('detects OAuth error in query string', () => {
+    const originalHref = window.location.href;
+    delete (window as unknown as { location: unknown }).location;
+    window.location = new URL('http://localhost:8081/auth?error=access_denied&error_description=User+cancelled') as unknown as Location;
+
+    const error = getUrlAuthError();
+    expect(error).toContain('Google sign-in was cancelled or access was denied');
+
+    window.location = new URL(originalHref) as unknown as Location;
+  });
+
+  it('detects OAuth error in hash fragment', () => {
+    const originalHref = window.location.href;
+    delete (window as unknown as { location: unknown }).location;
+    window.location = new URL('http://localhost:8081/auth#error=access_denied&error_description=User+cancelled') as unknown as Location;
+
+    const error = getUrlAuthError();
+    expect(error).toContain('Google sign-in was cancelled or access was denied');
+
+    window.location = new URL(originalHref) as unknown as Location;
+  });
+
+  it('returns null when no error parameters exist', () => {
+    const originalHref = window.location.href;
+    delete (window as unknown as { location: unknown }).location;
+    window.location = new URL('http://localhost:8081/auth') as unknown as Location;
+
+    const error = getUrlAuthError();
+    expect(error).toBeNull();
+
+    window.location = new URL(originalHref) as unknown as Location;
   });
 });
 

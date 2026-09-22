@@ -82,6 +82,115 @@ export function formatAuthError(error: unknown): string {
     return 'Google sign-in is not yet enabled in your Supabase project dashboard. Please enable Google under Authentication > Providers in Supabase.';
   }
 
-  return message;
+  // Google OAuth cancellation / access denied
+  if (
+    lower.includes('access_denied') ||
+    lower.includes('user cancelled') ||
+    lower.includes('consent_denied') ||
+    lower.includes('user_denied')
+  ) {
+    return 'Google sign-in was cancelled or access was denied. Please try again.';
+  }
 
-}
+  if (lower.includes('popup_closed_by_user') || lower.includes('window closed')) {
+    return 'The Google sign-in window was closed before completing authentication.';
+  }
+
+  // Session expiration
+  if (
+    lower.includes('session expired') ||
+    lower.includes('jwt expired') ||
+    lower.includes('token expired') ||
+    lower.includes('token is expired or invalid') ||
+    lower.includes('otp_expired')
+  ) {
+    return 'Your authentication session has expired. Please sign in again.';
+  }
+
+  // Temporary service outage
+  if (
+    lower.includes('503') ||
+    lower.includes('502') ||
+    lower.includes('bad gateway') ||
+    lower.includes('gateway timeout') ||
+    lower.includes('service unavailable')
+  ) {
+    return 'The authentication service is temporarily unavailable. Please try again in a few moments.';
+  }
+
+  if (lower.includes('email address is invalid') || lower.includes('invalid email')) {
+    return 'Please enter a valid email address.';
+  }
+
+  if (lower.includes('signup is disabled') || lower.includes('signups not allowed')) {
+    return 'Account registrations are currently disabled on this project.';
+  }
+
+  return message;
+}
+
+/**
+ * Detects and extracts authentication errors passed via URL query parameters
+ * or hash fragments (commonly returned by OAuth providers upon cancellation or failure).
+ */
+export function getUrlAuthError(): string | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    // 1. Check query parameters (?error=...&error_description=...)
+    const searchParams = new URLSearchParams(window.location.search);
+    const searchDesc = searchParams.get('error_description');
+    const searchErr = searchParams.get('error');
+    if (searchDesc || searchErr) {
+      return formatAuthError(searchDesc || searchErr);
+    }
+
+    // 2. Check hash parameters (#error=...&error_description=...)
+    if (window.location.hash) {
+      const hash = window.location.hash.startsWith('#')
+        ? window.location.hash.substring(1)
+        : window.location.hash;
+      const hashParams = new URLSearchParams(hash);
+      const hashDesc = hashParams.get('error_description');
+      const hashErr = hashParams.get('error');
+      if (hashDesc || hashErr) {
+        return formatAuthError(hashDesc || hashErr);
+      }
+    }
+  } catch {
+    // URL parsing guard
+  }
+
+  return null;
+}
+
+/**
+ * Removes auth hash and query error parameters from browser history without reloading the page.
+ */
+export function clearUrlAuthParams(): void {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+
+  try {
+    const url = new URL(window.location.href);
+    let changed = false;
+
+    if (url.searchParams.has('error') || url.searchParams.has('error_description') || url.searchParams.has('error_code')) {
+      url.searchParams.delete('error');
+      url.searchParams.delete('error_description');
+      url.searchParams.delete('error_code');
+      changed = true;
+    }
+
+    if (url.hash && (url.hash.includes('error=') || url.hash.includes('error_description='))) {
+      url.hash = '';
+      changed = true;
+    }
+
+    if (changed) {
+      window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
+    }
+  } catch {
+    // History mutation guard
+  }
+}
+
