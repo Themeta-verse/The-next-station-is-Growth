@@ -30,6 +30,7 @@ import Jobs from "./pages/dashboard/Jobs";
 import SpeechPractice from "./pages/dashboard/SpeechPractice";
 import MockInterview from "./pages/dashboard/MockInterview";
 import WeaknessDetector from "./pages/dashboard/WeaknessDetector";
+import GrowthInsights from "./pages/dashboard/GrowthInsights";
 import PlacementScore from "./pages/dashboard/PlacementScore";
 import CompanyPrep from "./pages/dashboard/CompanyPrep";
 import Last7Days from "./pages/dashboard/Last7Days";
@@ -79,7 +80,9 @@ const App = () => (
                     <Route path="interview" element={<InterviewPrep />} />
                     <Route path="speech" element={<SpeechPractice />} />
                     <Route path="mock-interview" element={<MockInterview />} />
-                    <Route path="weakness" element={<WeaknessDetector />} />
+                    <Route path="live-interview" element={<MockInterview />} />
+                    <Route path="weakness" element={<GrowthInsights />} />
+                    <Route path="growth-insights" element={<GrowthInsights />} />
                     <Route path="readiness" element={<PlacementScore />} />
                     <Route path="company-prep" element={<CompanyPrep />} />
                     <Route path="last-7-days" element={<Last7Days />} />

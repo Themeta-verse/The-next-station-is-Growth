@@ -39,18 +39,20 @@ export default function Companies() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
 
-  // Filter companies from authoritative database
+  const userDomain = (user?.domain || domain || 'engineering').toLowerCase();
+
+  // Filter companies from authoritative database scoped to stream
   const filteredCompanies = useMemo(() => {
-    return searchCompanies(searchQuery, undefined).filter(c => {
+    return searchCompanies(searchQuery, userDomain).filter(c => {
       if (selectedCategory === 'all') return true;
       if (selectedCategory === 'tier1') return c.tierCategory.includes('Tier 1');
       if (selectedCategory === 'tier2') return c.tierCategory.includes('Tier 2');
       if (selectedCategory === 'tier3') return c.tierCategory.includes('Tier 3');
-      if (selectedCategory === 'banking') return c.tierCategory.includes('Banking');
-      if (selectedCategory === 'civil') return c.tierCategory.includes('Civil');
+      if (selectedCategory === 'banking') return c.tierCategory.includes('Banking') || c.domain === 'commerce';
+      if (selectedCategory === 'civil') return c.tierCategory.includes('Civil') || c.domain === 'arts';
       return true;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, userDomain]);
 
   const isUnsupported = searchQuery.trim().length > 2 && filteredCompanies.length === 0;
 
@@ -235,7 +237,11 @@ export default function Companies() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Calculated from verified quiz performance, DSA mastery, and profile competencies. No arbitrary odds.
+                {userDomain === 'commerce'
+                  ? 'Calculated from verified quiz performance, financial & regulatory competencies, and profile metrics. No arbitrary odds.'
+                  : userDomain === 'arts'
+                  ? 'Calculated from verified quiz performance, general studies & administrative competencies, and profile metrics. No arbitrary odds.'
+                  : 'Calculated from verified quiz performance, DSA mastery, and profile competencies. No arbitrary odds.'}
               </p>
 
               <button
@@ -264,16 +270,45 @@ export default function Companies() {
     );
   }
 
+  // Stream-tailored category filters
+  const categoryFilters =
+    userDomain === 'commerce'
+      ? [
+          { id: 'all', label: 'All Organizations' },
+          { id: 'banking', label: 'Banking & Financial' },
+          { id: 'tier1', label: 'Big 4 / Advisory' },
+        ]
+      : userDomain === 'arts'
+      ? [
+          { id: 'all', label: 'All Services' },
+          { id: 'civil', label: 'Civil & Public Services' },
+          { id: 'tier1', label: 'Central / State Commissions' },
+        ]
+      : [
+          { id: 'all', label: 'All Companies' },
+          { id: 'tier1', label: 'Tier 1 (Product)' },
+          { id: 'tier2', label: 'Tier 2 (Growth)' },
+          { id: 'tier3', label: 'Tier 3 (Enterprise)' },
+        ];
+
   // LIST / SEARCH VIEW
   return (
     <div className="max-w-5xl space-y-6 animate-fade-in" data-testid="companies-list-view">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{isHi ? 'कंपनियां' : 'Supported Companies'}</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isHi
+              ? 'कंपनियां एवं संस्थाएं'
+              : userDomain === 'arts'
+              ? 'Target Commissions & Services'
+              : userDomain === 'commerce'
+              ? 'Target Financial Institutions & Firms'
+              : 'Supported Companies'}
+          </h1>
           <p className="text-sm text-muted-foreground">
             {isHi
               ? 'सत्यापित पाठ्यक्रम और भर्ती अपेक्षाओं पर आधारित कंपनियां'
-              : 'Evidence-based company preparation profiles with verified recruitment requirements.'}
+              : 'Evidence-based preparation profiles with verified recruitment requirements.'}
           </p>
         </div>
       </div>
@@ -286,20 +321,19 @@ export default function Companies() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search supported companies (e.g. Google, TCS, Microsoft, Amazon, Infosys)..."
+            placeholder={
+              userDomain === 'commerce'
+                ? 'Search institutions (e.g. HDFC Bank, Deloitte)...'
+                : userDomain === 'arts'
+                ? 'Search commissions (e.g. State PSC, SSC CGL)...'
+                : 'Search supported companies (e.g. Google, TCS, Microsoft, Amazon, Infosys)...'
+            }
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-xs focus:outline-none focus:ring-2 focus:ring-accent"
           />
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap text-xs">
-          {[
-            { id: 'all', label: 'All Companies' },
-            { id: 'tier1', label: 'Tier 1 (Product)' },
-            { id: 'tier2', label: 'Tier 2 (Growth)' },
-            { id: 'tier3', label: 'Tier 3 (Enterprise)' },
-            { id: 'banking', label: 'Banking & Financial' },
-            { id: 'civil', label: 'Civil Services' },
-          ].map(cat => (
+          {categoryFilters.map(cat => (
             <button
               key={cat.id}
               type="button"

@@ -45,7 +45,7 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
   const handleSaveWeakPoint = (wp: IdentifiedWeakPoint) => {
     addWeakPoint(wp.concept);
     setSavedWeakPoints((prev) => ({ ...prev, [wp.concept]: true }));
-    toast.success(`Saved "${wp.concept}" to your Weakness Detector.`);
+    toast.success(`Saved "${wp.concept}" to Growth Insights.`);
   };
 
   const handleOpenStudySheet = (topicOrConcept: string) => {
@@ -494,10 +494,10 @@ export const InterviewReportView: React.FC<InterviewReportViewProps> = ({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/weakness')}
+            onClick={() => navigate('/dashboard/growth-insights')}
             className="px-4 py-2.5 rounded-xl border border-border text-foreground hover:bg-muted/60 text-xs font-semibold transition-colors flex items-center gap-1.5"
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-primary" /> View Weakness Detector
+            <ShieldCheck className="w-3.5 h-3.5 text-accent" /> View in Growth Insights
           </button>
           <button
             onClick={onRetake}

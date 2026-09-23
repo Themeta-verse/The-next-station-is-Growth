@@ -212,10 +212,16 @@ REQUIREMENTS:
 - No markdown formatting, no quotes, no labels like "Interviewer:".
 - Keep it concise, natural, and conversational (1-3 sentences max).`;
 
+    const userDomain = profile?.domain || company?.domain || 'engineering';
+
     return new Promise((resolve) => {
       let result = '';
       const fallback = isClosing
-        ? `We are wrapping up our time today. Do you have any questions for me about the team, our engineering culture, or what to expect next?`
+        ? `We are wrapping up our time today. Do you have any questions for me about the team, the role expectations, or what to expect next?`
+        : userDomain === 'commerce'
+        ? `That's a key observation. Could you elaborate on the financial impact, risk controls, and regulatory implications of that approach?`
+        : userDomain === 'arts'
+        ? `That is a thoughtful point. How would you balance constitutional principles, public stakeholder interests, and administrative constraints in that scenario?`
         : `That's an interesting point. Could you dive deeper into the trade-offs you considered in that approach, specifically around scalability and edge-case handling?`;
 
       const timeoutId = setTimeout(() => {
@@ -359,30 +365,57 @@ Return ONLY valid JSON. No markdown ticks, no preamble.`;
           ...e,
           analysis: {
             strengths: ['Addressed the main question directly', 'Clear thought progression'],
-            weaknesses: ['Could articulate time/space complexity trade-offs with more precision'],
-            technicalCorrection: 'Always verify edge cases (null inputs, scale boundaries) before concluding.',
-            modelAnswer: `In an optimal interview answer for ${config.targetRole}, state your high-level approach first, articulate constraints, walk through the step-by-step logic, and conclude with computational trade-offs.`,
-            assessedSkill: idx === 0 ? 'Introduction & Project Narrative' : 'Algorithmic Problem Solving',
-            studyTopic: idx === 0 ? 'Behavioral / STAR Method' : 'Time & Space Complexity Analysis',
+            weaknesses: [
+              userDomain === 'commerce'
+                ? 'Could articulate financial ratio impacts and corporate risk controls with more precision'
+                : userDomain === 'arts'
+                ? 'Could cite relevant constitutional articles and public governance precedents with more precision'
+                : 'Could articulate time/space complexity trade-offs with more precision',
+            ],
+            technicalCorrection:
+              userDomain === 'commerce'
+                ? 'Always verify working capital and regulatory compliance assumptions before presenting conclusions.'
+                : userDomain === 'arts'
+                ? 'Always balance constitutional rights with administrative statutory constraints.'
+                : 'Always verify edge cases (null inputs, scale boundaries) before concluding.',
+            modelAnswer: `In an optimal interview answer for ${config.targetRole}, state your high-level approach first, articulate constraints, walk through the step-by-step logic, and conclude with professional trade-offs.`,
+            assessedSkill: idx === 0 ? 'Introduction & Professional Background' : userDomain === 'commerce' ? 'Financial Analysis & Case Reasoning' : userDomain === 'arts' ? 'Policy & Constitutional Analysis' : 'Algorithmic Problem Solving',
+            studyTopic: idx === 0 ? 'Behavioral / STAR Method' : userDomain === 'commerce' ? 'Financial Ratios & Corporate Analysis' : userDomain === 'arts' ? 'Indian Polity & Governance' : 'Time & Space Complexity Analysis',
           },
         })),
         identifiedWeakPoints: [
-          {
-            concept: 'Complexity Trade-off Analysis',
-            category: 'DSA',
-            description: 'Candidate struggled to definitively analyze runtime complexity under large inputs.',
-            severity: 'medium',
-            studyTopic: 'Time Complexity',
-          },
+          userDomain === 'commerce'
+            ? {
+                concept: 'Financial Modeling & Ratio Analysis',
+                category: 'Finance',
+                description: 'Candidate showed hesitation when explaining cash flow impact and debt-service ratios.',
+                severity: 'medium',
+                studyTopic: 'Financial Accounting & Analysis',
+              }
+            : userDomain === 'arts'
+            ? {
+                concept: 'Constitutional Case Precedents',
+                category: 'Polity',
+                description: 'Candidate struggled to cite specific landmark Supreme Court judgments in administrative scenarios.',
+                severity: 'medium',
+                studyTopic: 'Indian Polity & Constitution',
+              }
+            : {
+                concept: 'Complexity Trade-off Analysis',
+                category: 'DSA',
+                description: 'Candidate struggled to definitively analyze runtime complexity under large inputs.',
+                severity: 'medium',
+                studyTopic: 'Time Complexity',
+              },
           {
             concept: 'Structured Communication (STAR)',
             category: 'Behavioral',
-            description: 'Project walk-throughs lacked explicit quantifiable impact metrics.',
+            description: 'Answers lacked explicit quantifiable impact metrics and structured conclusions.',
             severity: 'low',
             studyTopic: 'STAR Technique for Behavioral Rounds',
           },
         ],
-        actionableSummary: `Solid performance demonstrating foundational readiness for ${config.targetRole}. Focus on structuring your answers more tightly with the STAR framework and explicitly stating algorithmic complexity trade-offs upfront.`,
+        actionableSummary: `Solid performance demonstrating foundational readiness for ${config.targetRole}. Focus on structuring your answers more tightly with the STAR framework and explicitly articulating domain trade-offs upfront.`,
       };
 
       const timeoutId = setTimeout(() => {

@@ -103,13 +103,30 @@ export default function StudentReadinessSnapshot() {
     );
 
     // Find weakest area
-    const pillars = [
-      { name: 'Data Structures & Algorithms', score: dsaScore, route: '/dashboard/quizzes', tip: 'Take a timed DSA practice quiz' },
-      { name: 'Core CS / Systems', score: csScore, route: '/dashboard/weekly', tip: 'Review OS & DBMS milestone units' },
-      { name: 'Technical Stack', score: techScore, route: '/dashboard/profile', tip: 'Add and verify project skills in profile' },
-      { name: 'Aptitude & Reasoning', score: aptScore, route: '/dashboard/quizzes', tip: 'Practice quantitative formulas & speed drills' },
-      { name: 'Interview Readiness', score: commScore, route: '/dashboard/interview', tip: 'Simulate technical & HR rounds' },
-    ];
+    const activeDomain = ((user?.domain || domain || 'engineering').toLowerCase());
+    const pillars = activeDomain === 'commerce'
+      ? [
+          { name: 'Financial & Accounting Core', score: techScore, route: '/dashboard/profile', tip: 'Verify accounting and finance skills' },
+          { name: 'Financial Modeling & Tools', score: dsaScore, route: '/dashboard/weekly', tip: 'Practice advanced Excel models' },
+          { name: 'Banking & Regulatory Knowledge', score: csScore, route: '/dashboard/quizzes', tip: 'Review RBI and banking policies' },
+          { name: 'Quantitative Aptitude & DI', score: aptScore, route: '/dashboard/quizzes', tip: 'Practice quantitative formulas & speed drills' },
+          { name: 'Business Communication', score: commScore, route: '/dashboard/interview', tip: 'Simulate business interviews' },
+        ]
+      : activeDomain === 'arts'
+      ? [
+          { name: 'Indian Polity & Governance', score: techScore, route: '/dashboard/profile', tip: 'Review core constitutional articles' },
+          { name: 'Essay & Answer Writing', score: dsaScore, route: '/dashboard/weekly', tip: 'Practice timed descriptive writing' },
+          { name: 'General Studies & Administration', score: csScore, route: '/dashboard/quizzes', tip: 'Review administrative and historical milestones' },
+          { name: 'CSAT & Analytical Aptitude', score: aptScore, route: '/dashboard/quizzes', tip: 'Practice CSAT reasoning and comprehension' },
+          { name: 'Board Interview Readiness', score: commScore, route: '/dashboard/interview', tip: 'Simulate personality test rounds' },
+        ]
+      : [
+          { name: 'Data Structures & Algorithms', score: dsaScore, route: '/dashboard/quizzes', tip: 'Take a timed DSA practice quiz' },
+          { name: 'Core CS / Systems', score: csScore, route: '/dashboard/weekly', tip: 'Review OS & DBMS milestone units' },
+          { name: 'Technical Stack', score: techScore, route: '/dashboard/profile', tip: 'Add and verify project skills in profile' },
+          { name: 'Aptitude & Reasoning', score: aptScore, route: '/dashboard/quizzes', tip: 'Practice quantitative formulas & speed drills' },
+          { name: 'Interview Readiness', score: commScore, route: '/dashboard/interview', tip: 'Simulate technical & HR rounds' },
+        ];
     pillars.sort((a, b) => a.score - b.score);
     const topWeakness = user?.weakPoints && user.weakPoints.length > 0
       ? user.weakPoints[0]
@@ -125,9 +142,10 @@ export default function StudentReadinessSnapshot() {
       topWeakness,
       recommendedAction: pillars[0],
     };
-  }, [user, topicPerformance]);
+  }, [user, topicPerformance, domain]);
 
-  const targetRole = user?.targetRole || (domain === 'engineering' ? 'Full Stack Developer' : domain === 'commerce' ? 'Financial Analyst' : 'Civil Services Aspirant');
+  const activeDomain = ((user?.domain || domain || 'engineering').toLowerCase());
+  const targetRole = user?.targetRole || (activeDomain === 'engineering' ? 'Full Stack Developer' : activeDomain === 'commerce' ? 'Financial Analyst' : 'Civil Services Aspirant');
   const targetCompany = user?.dreamCompany || (user?.targetCompanies && user.targetCompanies[0]) || 'Top Recruiters';
 
   return (
@@ -187,13 +205,30 @@ export default function StudentReadinessSnapshot() {
 
       {/* 5-Pillar Live Progress Bars */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-1">
-        {[
-          { label: 'Technical Skills', score: stats.techScore, icon: Layers },
-          { label: 'DSA & Algorithms', score: stats.dsaScore, icon: Brain },
-          { label: 'CS Fundamentals', score: stats.csScore, icon: Building },
-          { label: 'Aptitude & Logic', score: stats.aptScore, icon: Target },
-          { label: 'Interview & Comms', score: stats.commScore, icon: TrendingUp },
-        ].map(pillar => (
+        {(activeDomain === 'commerce'
+          ? [
+              { label: 'Domain Accounting', score: stats.techScore, icon: Layers },
+              { label: 'Modeling & Excel', score: stats.dsaScore, icon: Brain },
+              { label: 'Banking & Law', score: stats.csScore, icon: Building },
+              { label: 'Aptitude & Logic', score: stats.aptScore, icon: Target },
+              { label: 'Interview & Comms', score: stats.commScore, icon: TrendingUp },
+            ]
+          : activeDomain === 'arts'
+          ? [
+              { label: 'Polity & GS Core', score: stats.techScore, icon: Layers },
+              { label: 'Answer Writing', score: stats.dsaScore, icon: Brain },
+              { label: 'Governance & History', score: stats.csScore, icon: Building },
+              { label: 'CSAT & Logic', score: stats.aptScore, icon: Target },
+              { label: 'Interview & Comms', score: stats.commScore, icon: TrendingUp },
+            ]
+          : [
+              { label: 'Technical Skills', score: stats.techScore, icon: Layers },
+              { label: 'DSA & Algorithms', score: stats.dsaScore, icon: Brain },
+              { label: 'CS Fundamentals', score: stats.csScore, icon: Building },
+              { label: 'Aptitude & Logic', score: stats.aptScore, icon: Target },
+              { label: 'Interview & Comms', score: stats.commScore, icon: TrendingUp },
+            ]
+        ).map(pillar => (
           <div key={pillar.label} className="p-3 rounded-xl bg-muted/20 border border-border/60 space-y-1.5">
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-semibold text-foreground flex items-center gap-1">

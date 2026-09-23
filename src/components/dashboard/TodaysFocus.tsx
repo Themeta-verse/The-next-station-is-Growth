@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStationStore } from '@/store/useStationStore';
+import { usePerformanceStore } from '@/store/usePerformanceStore';
 import { getRecommendedFocusAreas, type RecommendedFocusArea } from '@/services/skillGapEngine';
 import {
   Flame,
@@ -19,10 +20,11 @@ import { toast } from 'sonner';
 export default function TodaysFocus() {
   const navigate = useNavigate();
   const { user, streak, completeTask, focusMinutes } = useStationStore();
+  const { topicPerformance, mockInterviewHistory } = usePerformanceStore();
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
 
   const focusTasks: RecommendedFocusArea[] = user
-    ? getRecommendedFocusAreas(user)
+    ? getRecommendedFocusAreas(user, topicPerformance, mockInterviewHistory)
     : [
         {
           id: 'default-1',

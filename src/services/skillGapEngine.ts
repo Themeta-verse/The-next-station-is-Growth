@@ -222,95 +222,133 @@ export interface RecommendedFocusArea {
 
 /**
  * Returns prioritized personalized daily focus tasks based on actual student gaps,
- * target role, target company, and assessed competencies.
+ * real quiz performance, live interview telemetry, target role, and company syllabus.
  */
-export function getRecommendedFocusAreas(user: UserProfile): RecommendedFocusArea[] {
+export function getRecommendedFocusAreas(
+  user: UserProfile,
+  topicPerformance?: Record<string, any>,
+  mockInterviewHistory?: any[]
+): RecommendedFocusArea[] {
   const recommendations: RecommendedFocusArea[] = [];
-  const targetCompany = user.dreamCompany || 'Target Recruiter';
+  const domain = (user.domain || 'engineering').toLowerCase();
+  const targetCompany = user.dreamCompany || (domain === 'commerce' ? 'HDFC Bank' : domain === 'arts' ? 'State PCS' : 'Google');
+  const targetRole = user.targetRole || (domain === 'commerce' ? 'Financial Analyst' : domain === 'arts' ? 'Civil Services Officer' : 'Software Engineer');
 
-  // 1. HIGH PRIORITY: Active Weak Points
-  if (user.weakPoints && user.weakPoints.length > 0) {
-    const primaryWeak = user.weakPoints[0];
-    const skillData = (user.skills || []).find(
-      s => s.name.toLowerCase() === primaryWeak.toLowerCase()
-    );
-    const level = skillData?.assessedLevel || skillData?.selfReportedLevel || 'Beginner';
+  // 1. EMPIRICAL QUIZ TELEMETRY: Identify topic with lowest accuracy / most mistakes
+  if (topicPerformance && Object.keys(topicPerformance).length > 0) {
+    const sortedLowTopics = Object.values(topicPerformance)
+      .map((tp: any) => {
+        const total = tp.correct + tp.incorrect;
+        const accuracy = total > 0 ? Math.round((tp.correct / total) * 100) : 0;
+        return { topic: tp.topic, total, incorrect: tp.incorrect, accuracy };
+      })
+      .filter(t => t.accuracy < 65 && t.total >= 1)
+      .sort((a, b) => a.accuracy - b.accuracy);
 
-    recommendations.push({
-      id: `wp-${primaryWeak}`,
-      priorityTier: 'HIGH PRIORITY',
-      title: `Address Weak Point: ${primaryWeak}`,
-      skill: primaryWeak,
-      reason: `Assessed competency is ${level} with active diagnostic gaps flagged.`,
-      path: '/dashboard/quizzes',
-      actionText: 'Review Notes & Drills',
-      estimatedMinutes: 25,
-    });
-
-    // 2. PRACTICE: Practice drill for the weak point or second weak point
-    if (user.weakPoints.length > 1) {
-      const secondWeak = user.weakPoints[1];
+    if (sortedLowTopics.length > 0) {
+      const worst = sortedLowTopics[0];
       recommendations.push({
-        id: `practice-${secondWeak}`,
-        priorityTier: 'PRACTICE',
-        title: `Solve 4 Targeted Problems on ${secondWeak}`,
-        skill: secondWeak,
-        reason: 'Reinforce invariant bounds and pattern recognition.',
-        path: '/dashboard/weekly',
-        actionText: 'Start Drills',
-        estimatedMinutes: 30,
-      });
-    } else {
-      recommendations.push({
-        id: `practice-${primaryWeak}`,
-        priorityTier: 'PRACTICE',
-        title: `Solve 4 Practice Problems on ${primaryWeak}`,
-        skill: primaryWeak,
-        reason: 'Solve medium-difficulty algorithmic problems under timed conditions.',
+        id: `empirical-quiz-${worst.topic}`,
+        priorityTier: 'HIGH PRIORITY',
+        title: `${worst.topic} Precision Drills`,
+        skill: worst.topic,
+        reason: `Recent attempts show difficulty: ${worst.incorrect} missed of ${worst.total} questions (${worst.accuracy}% accuracy).`,
         path: '/dashboard/quizzes',
-        actionText: 'Practice Drills',
-        estimatedMinutes: 30,
+        actionText: 'Start Checkpoint Quiz',
+        estimatedMinutes: 20,
       });
     }
   }
 
-  // 3. COMPANY PREP: Company-specific checkpoint
+  // 2. LIVE INTERVIEW TELEMETRY: Identify weakest interview dimension
+  if (mockInterviewHistory && mockInterviewHistory.length > 0) {
+    const latest = mockInterviewHistory[mockInterviewHistory.length - 1];
+    if (latest.dimensions) {
+      if (latest.dimensions.answerStructure < 65) {
+        recommendations.push({
+          id: 'interview-structure-rehearsal',
+          priorityTier: 'COMMUNICATION',
+          title: 'STAR Answer Framing Rehearsal',
+          skill: 'Interview Structuring',
+          reason: `Recent ${latest.company} interview scored ${latest.dimensions.answerStructure}% on structure. Answers lacked clear Situation-Task-Action-Result flow.`,
+          path: '/dashboard/speech',
+          actionText: 'Speech Practice',
+          estimatedMinutes: 15,
+        });
+      } else if (latest.dimensions.technicalKnowledge < 65) {
+        recommendations.push({
+          id: 'interview-technical-depth',
+          priorityTier: 'COMMUNICATION',
+          title: 'Live Technical Verbal Simulation',
+          skill: 'Domain Articulation',
+          reason: `Recent verbal technical depth scored ${latest.dimensions.technicalKnowledge}%. Practice explaining trade-offs aloud without hesitation.`,
+          path: '/dashboard/mock-interview',
+          actionText: 'Simulate Live Interview',
+          estimatedMinutes: 20,
+        });
+      }
+    }
+  }
+
+  // 3. ACTIVE PROFILE WEAK POINTS
+  if (user.weakPoints && user.weakPoints.length > 0 && recommendations.length < 3) {
+    const primaryWeak = user.weakPoints[0];
+    const skillData = (user.skills || []).find(
+      s => s.name.toLowerCase() === primaryWeak.toLowerCase()
+    );
+    const level = skillData?.assessedLevel || skillData?.selfReportedLevel || 'Developing';
+
+    if (!recommendations.some(r => r.skill.toLowerCase() === primaryWeak.toLowerCase())) {
+      recommendations.push({
+        id: `wp-${primaryWeak}`,
+        priorityTier: 'HIGH PRIORITY',
+        title: `Address Weak Point: ${primaryWeak}`,
+        skill: primaryWeak,
+        reason: `Assessed competency is ${level} with active diagnostic gaps flagged for ${targetRole}.`,
+        path: '/dashboard/quizzes',
+        actionText: 'Review Notes & Drills',
+        estimatedMinutes: 25,
+      });
+    }
+  }
+
+  // 4. COMPANY PREP: Stream-scoped company checkpoint
   if (recommendations.length < 3) {
     recommendations.push({
       id: 'company-prep',
       priorityTier: 'COMPANY PREP',
-      title: `${targetCompany} Screening Round Checkpoint`,
-      skill: 'Company Syllabus',
-      reason: `Directly aligned with ${targetCompany} online test and technical round specifications.`,
+      title: `${targetCompany} Screening Checkpoint`,
+      skill: `${targetCompany} Syllabus`,
+      reason: `Directly benchmarked against verified ${targetCompany} rounds for ${targetRole}.`,
       path: '/dashboard/companies',
       actionText: 'View Syllabus',
       estimatedMinutes: 20,
     });
   }
 
-  // 4. COMMUNICATION: Live Mock Interview or Behavioral Prep
+  // 5. LIVE SIMULATION (if not already scheduled)
   if (recommendations.length < 4) {
     recommendations.push({
       id: 'mock-interview',
       priorityTier: 'COMMUNICATION',
-      title: 'STAR Technical & Behavioral Simulation',
-      skill: 'Communication & Delivery',
-      reason: 'Rehearse technical communication with real-time AI video speech analysis.',
-      path: '/dashboard/interview-simulator',
-      actionText: 'Enter Simulator',
+      title: `Live Interview Simulation (${targetCompany})`,
+      skill: 'Verbal Delivery & Presence',
+      reason: `Rehearse verbal communication and technical questions with live speech analysis.`,
+      path: '/dashboard/mock-interview',
+      actionText: 'Enter Live Interview',
       estimatedMinutes: 15,
     });
   }
 
-  // 5. UNVERIFIED SKILL: Fallback to diagnostic check
+  // 6. UNVERIFIED SKILL: Fallback to diagnostic check
   const unassessedSkill = (user.skills || []).find(s => !s.assessedLevel && s.selfReportedLevel);
   if (unassessedSkill && recommendations.length < 4) {
     recommendations.push({
       id: `verify-${unassessedSkill.name}`,
       priorityTier: 'FOUNDATION',
-      title: `Verify ${unassessedSkill.name} Competency`,
+      title: `Validate ${unassessedSkill.name} Competency`,
       skill: unassessedSkill.name,
-      reason: `You reported ${unassessedSkill.selfReportedLevel}. Take diagnostic to validate skill score.`,
+      reason: `Reported as ${unassessedSkill.selfReportedLevel}. Take diagnostic to establish verified score.`,
       path: '/dashboard/baseline',
       actionText: 'Take Diagnostic',
       estimatedMinutes: 15,

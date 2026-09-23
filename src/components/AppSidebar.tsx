@@ -1,58 +1,70 @@
-import { Home, CalendarDays, Brain, Mic, FileText, BookOpen, Users, User, Settings, Building, Briefcase, AlertTriangle, Award, Calendar, ChevronDown, Trophy, LogOut } from 'lucide-react';
+import {
+  Home,
+  CalendarDays,
+  Brain,
+  Mic,
+  FileText,
+  BookOpen,
+  Users,
+  User,
+  Settings,
+  Building,
+  Briefcase,
+  Award,
+  Trophy,
+  LogOut,
+  TrendingUp,
+  Video,
+} from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
 import { useAuth } from '@/context/AuthContext';
-import { cn } from '@/lib/utils';
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, SidebarFooter, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 
-const navItems = [
-  { title: 'Home', url: '/dashboard', icon: Home },
-  { title: 'Quizzes', url: '/dashboard/quizzes', icon: Brain },
+const coreNav = [
+  { title: 'Home', url: '/dashboard', icon: Home, end: true },
+  { title: 'Growth Insights', url: '/dashboard/growth-insights', icon: TrendingUp },
+  { title: 'Readiness Score', url: '/dashboard/readiness', icon: Award },
+  { title: 'Weekly Plan', url: '/dashboard/weekly', icon: CalendarDays },
+  { title: 'Skill Quizzes', url: '/dashboard/quizzes', icon: Brain },
   { title: 'Leaderboard', url: '/dashboard/leaderboard', icon: Trophy },
-  { title: 'Resume', url: '/dashboard/resume', icon: FileText },
+];
+
+const interviewNav = [
+  { title: 'Live AI Interview', url: '/dashboard/mock-interview', icon: Video },
+  { title: 'Interview Prep', url: '/dashboard/interview', icon: Brain },
+  { title: 'Speech Practice', url: '/dashboard/speech', icon: Mic },
+  { title: 'Company Mock', url: '/dashboard/company-prep', icon: Building },
+];
+
+const careerNav = [
+  { title: 'Job Openings', url: '/dashboard/jobs', icon: Briefcase },
+  { title: 'Top Companies', url: '/dashboard/companies', icon: Building },
+  { title: 'Resume Builder', url: '/dashboard/resume', icon: FileText },
   { title: 'Knowledge Vault', url: '/dashboard/vault', icon: BookOpen },
-  { title: 'Companies', url: '/dashboard/companies', icon: Building },
-  { title: 'Jobs', url: '/dashboard/jobs', icon: Briefcase },
-  { title: 'Social Hub', url: '/dashboard/social', icon: Users },
+  { title: 'Peer Network', url: '/dashboard/social', icon: Users },
   { title: 'Profile', url: '/dashboard/profile', icon: User },
   { title: 'Settings', url: '/dashboard/settings', icon: Settings },
 ];
 
-const dashboardGroup = {
-  title: 'Dashboard',
-  icon: CalendarDays,
-  items: [
-    { title: 'Weekly Plan', url: '/dashboard/weekly' },
-    { title: 'Readiness Score', url: '/dashboard/readiness' },
-    { title: 'Weakness Detector', url: '/dashboard/weakness' },
-    { title: 'Last 7 Days', url: '/dashboard/last-7-days' },
-  ],
-};
-
-const interviewGroup = {
-  title: 'Interview',
-  icon: Mic,
-  items: [
-    { title: 'Interview Prep', url: '/dashboard/interview' },
-    { title: 'Mock Interview', url: '/dashboard/mock-interview' },
-    { title: 'Speech Practice', url: '/dashboard/speech' },
-    { title: 'Company Prep', url: '/dashboard/company-prep' },
-  ],
-};
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const [expandedGroups, setExpandedGroups] = useState({ dashboard: false, interview: false });
   const { domain } = useStationStore();
   const config = domainConfig[domain];
 
@@ -61,139 +73,94 @@ export function AppSidebar() {
     navigate('/', { replace: true });
   };
 
-  useEffect(() => {
-    const isInterviewPath = interviewGroup.items.some(
-      (item) => location.pathname === item.url || location.pathname.startsWith(item.url),
-    );
-    const isDashboardPath = dashboardGroup.items.some(
-      (item) => location.pathname === item.url || location.pathname.startsWith(item.url),
-    );
-
-    setExpandedGroups((current) => ({
-      dashboard: current.dashboard || isDashboardPath,
-      interview: current.interview || isInterviewPath,
-    }));
-  }, [location.pathname]);
-
-  const toggleGroup = (group: keyof typeof expandedGroups) => {
-    setExpandedGroups((current) => ({ ...current, [group]: !current[group] }));
-  };
-
-  const dashboardActive = dashboardGroup.items.some((item) => location.pathname === item.url || location.pathname.startsWith(item.url));
-  const interviewActive = interviewGroup.items.some((item) => location.pathname === item.url || location.pathname.startsWith(item.url));
-
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
+        {/* Brand Header */}
         <SidebarGroup>
           <SidebarGroupLabel>
             {!collapsed && (
               <span className="flex items-center gap-2">
-                <img src="/logo.svg" alt="Station logo" className="h-8 w-8 rounded-md border border-border bg-background" />
-                <span className="font-bold text-sidebar-primary">STATION</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sidebar-primary/20 text-sidebar-primary font-medium">{config.tag}</span>
+                <img
+                  src="/logo.svg"
+                  alt="Station logo"
+                  className="h-8 w-8 rounded-md border border-border bg-background"
+                />
+                <span className="font-bold tracking-tight text-sidebar-primary">GROWTH STATION</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-sidebar-primary/20 text-sidebar-primary font-medium">
+                  {config.tag}
+                </span>
               </span>
             )}
           </SidebarGroupLabel>
+        </SidebarGroup>
+
+        {/* CORE SECTION */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] font-mono tracking-wider font-semibold text-muted-foreground uppercase px-2">
+            {!collapsed ? 'Core Intelligence' : 'Core'}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.slice(0, 2).map((item) => (
+              {coreNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end={item.url === '/dashboard'} className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
+                    <NavLink
+                      to={item.url}
+                      end={item.end}
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  type="button"
-                  onClick={() => toggleGroup('dashboard')}
-                  isActive={dashboardActive}
-                  className="justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    <dashboardGroup.icon className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>{dashboardGroup.title}</span>}
-                  </span>
-                  {!collapsed && (
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 transition-transform',
-                        expandedGroups.dashboard ? 'rotate-180' : 'rotate-0',
-                      )}
-                    />
-                  )}
-                </SidebarMenuButton>
-
-                {!collapsed && expandedGroups.dashboard && (
-                  <SidebarMenuSub>
-                    {dashboardGroup.items.map((item) => (
-                      <SidebarMenuSubItem key={item.title}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                          <NavLink
-                            to={item.url}
-                            end
-                            className="flex-1"
-                            activeClassName="font-medium"
-                          >
-                            {item.title}
-                          </NavLink>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  type="button"
-                  onClick={() => toggleGroup('interview')}
-                  isActive={interviewActive}
-                  className="justify-between"
-                >
-                  <span className="flex items-center gap-2">
-                    <interviewGroup.icon className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>{interviewGroup.title}</span>}
-                  </span>
-                  {!collapsed && (
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 transition-transform',
-                        expandedGroups.interview ? 'rotate-180' : 'rotate-0',
-                      )}
-                    />
-                  )}
-                </SidebarMenuButton>
-
-                {!collapsed && expandedGroups.interview && (
-                  <SidebarMenuSub>
-                    {interviewGroup.items.map((item) => (
-                      <SidebarMenuSubItem key={item.title}>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                          <NavLink
-                            to={item.url}
-                            end
-                            className="flex-1"
-                            activeClassName="font-medium"
-                          >
-                            {item.title}
-                          </NavLink>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
-
-              {navItems.slice(2).map((item) => (
+        {/* INTERVIEW SECTION */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] font-mono tracking-wider font-semibold text-muted-foreground uppercase px-2">
+            {!collapsed ? 'Interview Systems' : 'Interview'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {interviewNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end={item.url === '/dashboard'} className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
+                    <NavLink
+                      to={item.url}
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      <item.icon className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* CAREER SECTION */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] font-mono tracking-wider font-semibold text-muted-foreground uppercase px-2">
+            {!collapsed ? 'Career & Network' : 'Career'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {careerNav.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -204,6 +171,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         {!collapsed ? (
           <div className="p-3 space-y-2 border-t border-sidebar-border">
@@ -230,7 +198,6 @@ export function AppSidebar() {
           </div>
         )}
       </SidebarFooter>
-
     </Sidebar>
   );
 }

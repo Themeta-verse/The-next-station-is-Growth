@@ -7,7 +7,9 @@ import { useNavigate } from 'react-router-dom';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { streamChat } from '@/lib/ai';
 import { supabase } from '@/integrations/supabase/client';
-import heroImg from '@/assets/hero-study.jpg';
+import heroEngineering from '@/assets/hero-engineering.jpg';
+import heroCommerce from '@/assets/hero-commerce.jpg';
+import heroArts from '@/assets/hero-arts.jpg';
 import JobReadinessCalculator from '@/components/readiness/JobReadinessCalculator';
 import StudentReadinessSnapshot from '@/components/dashboard/StudentReadinessSnapshot';
 import TodaysFocus from '@/components/dashboard/TodaysFocus';
@@ -234,40 +236,80 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
 
 
 
+  const currentHeroImg =
+    domain === 'commerce' ? heroCommerce :
+    domain === 'arts' ? heroArts : heroEngineering;
+
+  const streamSubtitle =
+    domain === 'commerce'
+      ? 'CORPORATE & FINANCIAL INTELLIGENCE // BIG 4 & BANKING TRACK'
+      : domain === 'arts'
+      ? 'PUBLIC POLICY & CIVIL SERVICES // CONSTITUTIONAL GOVERNANCE'
+      : 'SYSTEMS & ALGORITHMIC ARCHITECTURE // TIER 1 SDE TRACK';
+
   return (
     <div className="max-w-5xl space-y-5 animate-fade-in">
-      {/* Hero Banner */}
-      <div className="relative rounded-2xl overflow-hidden h-40 md:h-48">
-        <img src={heroImg} alt="Study" className="w-full h-full object-cover" width={1280} height={512} />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/40 flex items-center p-6">
-          <div className="flex-1">
-            <h1 className="text-xl md:text-2xl font-bold text-primary-foreground">{isHi ? `वापसी पर स्वागत, ${user?.name || 'Student'}` : `Welcome back, ${user?.name || 'Student'}`}</h1>
-            <p className="text-sm text-primary-foreground/70 mt-1 max-w-md">{isHi ? config.affirmationHi : config.affirmation}</p>
+      {/* Stream-Specific Hero Banner */}
+      <div className="relative rounded-2xl overflow-hidden h-44 md:h-52 shadow-sm">
+        <img
+          src={currentHeroImg}
+          alt={config.label}
+          className="w-full h-full object-cover"
+          width={1280}
+          height={512}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-transparent flex items-center p-6 md:p-8">
+          <div className="flex-1 max-w-xl space-y-1.5">
+            <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-accent bg-accent/15 px-2.5 py-0.5 rounded border border-accent/25">
+              {streamSubtitle}
+            </span>
+            <h1 className="text-xl md:text-3xl font-extrabold text-foreground">
+              {isHi ? `वापसी पर स्वागत, ${user?.name || 'Student'}` : `Welcome back, ${user?.name || 'Student'}`}
+            </h1>
+            <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
+              {isHi ? config.affirmationHi : config.affirmation}
+            </p>
           </div>
-          <div className="flex flex-col gap-2 items-end">
-            <button onClick={() => navigate('/dashboard/profile?open=personality', { state: { openPersonality: true } })}
-              className="px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-sm text-primary-foreground text-xs font-medium hover:bg-white/30 transition-all flex items-center gap-1.5">
-              <Brain className="w-3.5 h-3.5" /> {isHi ? 'व्यक्तित्व जांच' : 'Personality Check'}
+          <div className="flex flex-col gap-2 items-end shrink-0 pl-4">
+            <button
+              onClick={() => navigate('/dashboard/growth-insights')}
+              className="px-3.5 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-bold hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> {isHi ? 'ग्रोथ इनसाइट्स' : 'Growth Insights'}
             </button>
-            <button onClick={() => navigate('/dashboard/readiness')}
-              className="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm text-primary-foreground text-xs font-medium hover:bg-white/20 transition-all flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5" /> {isHi ? 'रेडीनेस स्कोर' : 'Readiness Score'}
+            <button
+              onClick={() => navigate('/dashboard/readiness')}
+              className="px-3.5 py-1.5 rounded-xl border border-border bg-card/80 backdrop-blur-sm text-foreground text-xs font-semibold hover:bg-muted transition-all flex items-center gap-1.5"
+            >
+              <Award className="w-3.5 h-3.5 text-accent" /> {isHi ? 'रेडीनेस स्कोर' : 'Readiness Hub'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Stats Row */}
+      {/* Stream-Tailored Stats Row */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: Flame, label: isHi ? 'स्ट्रीक' : 'Streak', value: `${streak}d` },
-          { icon: CheckCircle, label: isHi ? 'टास्क' : 'Tasks', value: String(tasksDone) },
-          { icon: Target, label: isHi ? 'लक्ष्य' : 'Goal', value: `${weeklyGoalProgress}%` },
+          {
+            icon: Flame,
+            label: isHi ? 'स्ट्रीक' : domain === 'commerce' ? 'Trading Streak' : domain === 'arts' ? 'Study Streak' : 'Commit Streak',
+            value: `${streak}d`,
+          },
+          {
+            icon: CheckCircle,
+            label: isHi ? 'टास्क' : domain === 'commerce' ? 'Cases Analyzed' : domain === 'arts' ? 'Papers Reviewed' : 'Tasks Compiled',
+            value: String(tasksDone),
+          },
+          {
+            icon: Target,
+            label: isHi ? 'लक्ष्य' : domain === 'commerce' ? 'Quarterly Target' : domain === 'arts' ? 'Syllabus Target' : 'Sprint Goal',
+            value: `${weeklyGoalProgress}%`,
+          },
         ].map(s => (
-          <div key={s.label} className="bg-card rounded-xl border border-border p-3 text-center">
+          <div key={s.label} className="bg-card rounded-2xl border border-border p-3.5 text-center shadow-xs">
             <s.icon className="w-4 h-4 mx-auto mb-1 text-accent" />
-            <p className="text-lg font-bold">{s.value}</p>
-            <p className="text-[10px] text-muted-foreground">{s.label}</p>
+            <p className="text-lg font-bold text-foreground font-mono">{s.value}</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">{s.label}</p>
           </div>
         ))}
       </div>

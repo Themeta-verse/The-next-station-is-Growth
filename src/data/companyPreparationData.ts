@@ -315,6 +315,50 @@ export const SUPPORTED_COMPANIES: CompanyProfile[] = [
       },
     ],
   },
+  {
+    id: 'hdfc-bank',
+    name: 'HDFC Bank',
+    domain: 'commerce',
+    tierCategory: 'Financial & Banking',
+    tierDisclaimer: TIER_DISCLAIMER_TEXT,
+    typicalPackageRange: '7.5 - 12 LPA',
+    overview: 'India’s largest private sector bank evaluating credit analysis, retail banking products, and client advisory skills.',
+    hiringRounds: ['Online Assessment (Quant & Verbal)', 'Case Study Discussion', 'Technical / Domain Interview', 'HR Round'],
+    roles: [
+      {
+        role: 'Corporate Banking Associate',
+        requiredSkills: ['Financial Modeling', 'Corporate Finance', 'Quantitative Aptitude', 'Business Communication'],
+        dsaExpectation: 'Beginner',
+        csFundamentalsExpectation: 'Beginner',
+        aptitudeExpectation: 'Advanced',
+        interviewExpectation: 'Advanced',
+        stages: ['Online Screening', 'Case Analysis', 'Panel Interview'],
+        prepHighlights: ['Ratio analysis and cash flow valuation models', 'Working capital management and collateral assessment', 'Client presentation structuring'],
+      },
+    ],
+  },
+  {
+    id: 'deloitte',
+    name: 'Deloitte',
+    domain: 'commerce',
+    tierCategory: 'Financial & Banking',
+    tierDisclaimer: TIER_DISCLAIMER_TEXT,
+    typicalPackageRange: '8.0 - 13 LPA',
+    overview: 'Global audit, financial advisory, and risk consulting leader focusing on analytical rigor, accounting standards, and communication.',
+    hiringRounds: ['Online Aptitude & Business Math', 'Group Case Simulation', 'Senior Manager Technical Round', 'Partner Round'],
+    roles: [
+      {
+        role: 'Tax & Financial Advisory Analyst',
+        requiredSkills: ['Financial Accounting', 'Taxation & Auditing', 'Corporate Finance', 'Excel & Financial Modeling'],
+        dsaExpectation: 'Beginner',
+        csFundamentalsExpectation: 'Beginner',
+        aptitudeExpectation: 'Advanced',
+        interviewExpectation: 'Advanced',
+        stages: ['Online Aptitude & Reasoning', 'Case Presentation', 'Partner Interview'],
+        prepHighlights: ['Corporate tax structuring and GST regulations', 'Discounted Cash Flow (DCF) & Trading Comps models', 'Business articulation under time limits'],
+      },
+    ],
+  },
 
   // CIVIL SERVICES & PUBLIC SECTOR (ARTS TRACK)
   {
@@ -339,6 +383,50 @@ export const SUPPORTED_COMPANIES: CompanyProfile[] = [
       },
     ],
   },
+  {
+    id: 'state-psc',
+    name: 'State PCS',
+    domain: 'arts',
+    tierCategory: 'Civil Services & Public Sector',
+    tierDisclaimer: TIER_DISCLAIMER_TEXT,
+    typicalPackageRange: 'State Administrative Services (SDM / DSP)',
+    overview: 'State-level premier civil services recruitment examination focusing on state administration, public polity, and regional history.',
+    hiringRounds: ['State Preliminary Exam (GS + CSAT)', 'Mains Subjective Papers', 'State Commission Personality Interview'],
+    roles: [
+      {
+        role: 'State Administrative Officer (SDM / DSP)',
+        requiredSkills: ['Indian Polity & Constitution', 'Modern Indian History', 'Quantitative Aptitude', 'Essay & Answer Writing'],
+        dsaExpectation: 'Beginner',
+        csFundamentalsExpectation: 'Beginner',
+        aptitudeExpectation: 'Advanced',
+        interviewExpectation: 'Advanced',
+        stages: ['State Prelims (Objective GS)', 'State Mains (Descriptive Papers)', 'Personal Interview'],
+        prepHighlights: ['State administrative apparatus and land revenue systems', 'Regional geography, cultural heritage, and developmental schemes', 'Analytical essay drafting on social issues'],
+      },
+    ],
+  },
+  {
+    id: 'ssc-cgl',
+    name: 'SSC CGL',
+    domain: 'arts',
+    tierCategory: 'Civil Services & Public Sector',
+    tierDisclaimer: TIER_DISCLAIMER_TEXT,
+    typicalPackageRange: 'Level 7 / 8 Central Pay Scale (ASO / Inspector)',
+    overview: 'Combined Graduate Level examination recruiting group B and C officers across central ministries and departments.',
+    hiringRounds: ['Tier 1 (Computer Based Test: Quant, Reasoning, English, GA)', 'Tier 2 (Advanced Quant, English, Statistics/General Studies)', 'Document Verification'],
+    roles: [
+      {
+        role: 'Assistant Section Officer (Central Ministries)',
+        requiredSkills: ['Logical Reasoning & CSAT', 'Quantitative Aptitude', 'General Awareness & Static GK', 'English Comprehension'],
+        dsaExpectation: 'Beginner',
+        csFundamentalsExpectation: 'Beginner',
+        aptitudeExpectation: 'Advanced',
+        interviewExpectation: 'Intermediate',
+        stages: ['CBT Tier 1 Screening', 'CBT Tier 2 Comprehensive', 'Typing & Document Verification'],
+        prepHighlights: ['High-speed quantitative mathematics and shortcut formulas', 'Static General Knowledge (Polity, Modern History, Science)', 'Verbal accuracy and vocabulary under negative marking'],
+      },
+    ],
+  },
 ];
 
 export function getCompanyByName(name: string): CompanyProfile | undefined {
@@ -349,10 +437,11 @@ export function getCompanyByName(name: string): CompanyProfile | undefined {
   );
 }
 
-export function searchCompanies(query: string, domain?: Domain): CompanyProfile[] {
+export function searchCompanies(query: string, domain?: Domain | string): CompanyProfile[] {
   const q = (query || '').trim().toLowerCase();
+  const normalizedDomain = domain ? domain.trim().toLowerCase() : undefined;
   return SUPPORTED_COMPANIES.filter(c => {
-    const matchesDomain = !domain || c.domain === domain;
+    const matchesDomain = !normalizedDomain || c.domain.toLowerCase() === normalizedDomain;
     if (!q) return matchesDomain;
     const matchesName = c.name.toLowerCase().includes(q);
     const matchesTier = c.tierCategory.toLowerCase().includes(q);
@@ -416,7 +505,9 @@ export function computePreparationReadiness(
     };
   }
 
-  // 1. Technical Skill Score
+  const domain = (company.domain || 'engineering').toLowerCase();
+
+  // 1. Technical / Domain Skill Score
   const studentSkills = user.skills || [];
   let skillMatchCount = 0;
   let totalSkillWeight = 0;
@@ -432,9 +523,15 @@ export function computePreparationReadiness(
 
   const technicalSkillScore = Math.min(100, Math.round((skillMatchCount / Math.max(1, totalSkillWeight)) * 100));
 
-  // 2. DSA Readiness
+  // 2. Pillar 2: Algorithmic / Modeling / Essay Articulation
   let dsaScore = levelToNumber(user.dsaLevel);
-  if (topicPerformance) {
+  if (domain === 'commerce') {
+    const modelingSkill = studentSkills.find(s => s.name.toLowerCase().includes('excel') || s.name.toLowerCase().includes('model'));
+    dsaScore = modelingSkill ? levelToNumber(modelingSkill.proficiency) : (user.dsaLevel ? levelToNumber(user.dsaLevel) : 50);
+  } else if (domain === 'arts') {
+    const writingSkill = studentSkills.find(s => s.name.toLowerCase().includes('essay') || s.name.toLowerCase().includes('writing') || s.name.toLowerCase().includes('ethics'));
+    dsaScore = writingSkill ? levelToNumber(writingSkill.proficiency) : 50;
+  } else if (topicPerformance) {
     const dsaPerf = Object.entries(topicPerformance).find(([k]) => k.toLowerCase().includes('dsa') || k.toLowerCase().includes('algorithm'));
     if (dsaPerf && dsaPerf[1].attempts > 0) {
       const accuracy = Math.round((dsaPerf[1].correct / dsaPerf[1].attempts) * 100);
@@ -442,9 +539,15 @@ export function computePreparationReadiness(
     }
   }
 
-  // 3. CS Fundamentals Readiness
+  // 3. Pillar 3: Core Domain Principles (CS Fundamentals / Banking Regulations / Polity & Constitution)
   let csFundamentalsScore = levelToNumber(user.csFundamentalsLevel);
-  if (topicPerformance) {
+  if (domain === 'commerce') {
+    const corpSkill = studentSkills.find(s => s.name.toLowerCase().includes('bank') || s.name.toLowerCase().includes('tax') || s.name.toLowerCase().includes('law') || s.name.toLowerCase().includes('finance') || s.name.toLowerCase().includes('accounting'));
+    csFundamentalsScore = corpSkill ? levelToNumber(corpSkill.proficiency) : (user.csFundamentalsLevel ? levelToNumber(user.csFundamentalsLevel) : 55);
+  } else if (domain === 'arts') {
+    const politySkill = studentSkills.find(s => s.name.toLowerCase().includes('polity') || s.name.toLowerCase().includes('history') || s.name.toLowerCase().includes('constitution') || s.name.toLowerCase().includes('governance'));
+    csFundamentalsScore = politySkill ? levelToNumber(politySkill.proficiency) : 55;
+  } else if (topicPerformance) {
     const csPerf = Object.entries(topicPerformance).filter(([k]) =>
       k.toLowerCase().includes('dbms') ||
       k.toLowerCase().includes('os') ||
@@ -464,7 +567,7 @@ export function computePreparationReadiness(
   // 4. Aptitude Score
   let aptitudeScore = levelToNumber(user.aptitudeLevel);
   if (topicPerformance) {
-    const aptPerf = Object.entries(topicPerformance).find(([k]) => k.toLowerCase().includes('aptitude') || k.toLowerCase().includes('quantitative'));
+    const aptPerf = Object.entries(topicPerformance).find(([k]) => k.toLowerCase().includes('aptitude') || k.toLowerCase().includes('quantitative') || k.toLowerCase().includes('csat') || k.toLowerCase().includes('reasoning'));
     if (aptPerf && aptPerf[1].attempts > 0) {
       const acc = Math.round((aptPerf[1].correct / aptPerf[1].attempts) * 100);
       aptitudeScore = Math.round((aptitudeScore * 0.4) + (acc * 0.6));
@@ -475,13 +578,32 @@ export function computePreparationReadiness(
   const interviewScore = levelToNumber(user.communicationLevel);
 
   // Overall Weighted synthesis
-  const overallScore = Math.round(
-    technicalSkillScore * 0.30 +
-    dsaScore * 0.25 +
-    csFundamentalsScore * 0.20 +
-    aptitudeScore * 0.15 +
-    interviewScore * 0.10
-  );
+  let overallScore = 0;
+  if (domain === 'commerce') {
+    overallScore = Math.round(
+      technicalSkillScore * 0.35 +
+      csFundamentalsScore * 0.20 +
+      aptitudeScore * 0.20 +
+      dsaScore * 0.15 +
+      interviewScore * 0.10
+    );
+  } else if (domain === 'arts') {
+    overallScore = Math.round(
+      technicalSkillScore * 0.35 +
+      csFundamentalsScore * 0.25 +
+      aptitudeScore * 0.20 +
+      interviewScore * 0.10 +
+      dsaScore * 0.10
+    );
+  } else {
+    overallScore = Math.round(
+      technicalSkillScore * 0.30 +
+      dsaScore * 0.25 +
+      csFundamentalsScore * 0.20 +
+      aptitudeScore * 0.15 +
+      interviewScore * 0.10
+    );
+  }
 
   // Gap Analysis
   const gaps: ReadinessScoreResult['gaps'] = [];
@@ -525,29 +647,73 @@ export function computePreparationReadiness(
     }
   };
 
-  compareGap(
-    'Data Structures & Algorithms',
-    dsaScore,
-    user.dsaLevel || 'Beginner',
-    role.dsaExpectation,
-    `Complete DSA quizzes and practice ${role.prepHighlights[0] || 'problem sets'}.`
-  );
-
-  compareGap(
-    'CS Fundamentals / Core Domain',
-    csFundamentalsScore,
-    user.csFundamentalsLevel || 'Beginner',
-    role.csFundamentalsExpectation,
-    `Review DBMS transactions, OS scheduling, and networking principles.`
-  );
-
-  compareGap(
-    'Aptitude & Problem Solving',
-    aptitudeScore,
-    user.aptitudeLevel || 'Beginner',
-    role.aptitudeExpectation,
-    `Practice timed Quantitative and Logical Reasoning sets.`
-  );
+  if (domain === 'commerce') {
+    compareGap(
+      'Financial Modeling & Applied Tools',
+      dsaScore,
+      user.dsaLevel || 'Moderate',
+      role.dsaExpectation || 'Intermediate',
+      `Practice Excel financial models and ${role.prepHighlights[0] || 'accounting frameworks'}.`
+    );
+    compareGap(
+      'Banking & Corporate Domain Principles',
+      csFundamentalsScore,
+      user.csFundamentalsLevel || 'Moderate',
+      role.csFundamentalsExpectation || 'Intermediate',
+      `Review regulatory frameworks, RBI/tax policies, and ${role.prepHighlights[1] || 'statutory standards'}.`
+    );
+    compareGap(
+      'Quantitative Aptitude & Data Interpretation',
+      aptitudeScore,
+      user.aptitudeLevel || 'Beginner',
+      role.aptitudeExpectation,
+      `Practice timed speed math, percentage calculations, and chart analysis.`
+    );
+  } else if (domain === 'arts') {
+    compareGap(
+      'Essay & Structured Answer Articulation',
+      dsaScore,
+      user.dsaLevel || 'Moderate',
+      role.dsaExpectation || 'Intermediate',
+      `Practice timed essay drafting and multi-dimensional answer frameworks.`
+    );
+    compareGap(
+      'Indian Polity & Governance Foundations',
+      csFundamentalsScore,
+      user.csFundamentalsLevel || 'Moderate',
+      role.csFundamentalsExpectation || 'Intermediate',
+      `Master landmark constitutional articles, governance frameworks, and ${role.prepHighlights[0] || 'current affairs'}.`
+    );
+    compareGap(
+      'Analytical Reasoning & CSAT Logic',
+      aptitudeScore,
+      user.aptitudeLevel || 'Beginner',
+      role.aptitudeExpectation,
+      `Practice syllogisms, reading comprehension, and deductive logic puzzles.`
+    );
+  } else {
+    compareGap(
+      'Data Structures & Algorithms',
+      dsaScore,
+      user.dsaLevel || 'Beginner',
+      role.dsaExpectation,
+      `Complete DSA quizzes and practice ${role.prepHighlights[0] || 'problem sets'}.`
+    );
+    compareGap(
+      'CS Fundamentals / Core Domain',
+      csFundamentalsScore,
+      user.csFundamentalsLevel || 'Beginner',
+      role.csFundamentalsExpectation,
+      `Review DBMS transactions, OS scheduling, and networking principles.`
+    );
+    compareGap(
+      'Aptitude & Problem Solving',
+      aptitudeScore,
+      user.aptitudeLevel || 'Beginner',
+      role.aptitudeExpectation,
+      `Practice timed Quantitative and Logical Reasoning sets.`
+    );
+  }
 
   if (studentSkills.length < 2) {
     missingDataNotes.push('Add your technical skills in your Profile to improve Skill Match accuracy.');

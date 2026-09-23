@@ -94,129 +94,170 @@ function isNetworkFetchError(error: unknown): boolean {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthInitializing, setIsAuthInitializing] = useState<boolean>(true);
+  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean>(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState<boolean>(false);
-  const { login } = useStationStore();
+  const { login, logout } = useStationStore();
 
-  const syncUserProfile = useCallback(async (userId: string, defaultName?: string): Promise<boolean> => {
-    try {
-      const fetchPromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+  const isLoading = isAuthInitializing || isProfileLoading;
 
-      const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 3500)
-      );
+  const activeSyncRef = React.useRef<{ userId: string; promise: Promise<boolean> } | null>(null);
 
-      const { data: profile, error } = await Promise.race([fetchPromise, timeoutPromise]);
-      const currentStore = useStationStore.getState();
-      const currentUser = currentStore.user;
+  const syncUserProfile = useCallback(async (userId: string, defaultName?: string, userObject?: User | null): Promise<boolean> => {
+    // If a profile sync is already in flight for this exact user ID, reuse the in-flight promise
+    if (activeSyncRef.current && activeSyncRef.current.userId === userId) {
+      return activeSyncRef.current.promise;
+    }
 
-      let authUserMeta = user?.id === userId ? user?.user_metadata : undefined;
-      if (!authUserMeta) {
-        try {
-          const { data: authUserData } = await supabase.auth.getUser();
-          if (authUserData?.user?.id === userId) {
-            authUserMeta = authUserData.user.user_metadata;
-          }
-        } catch {
-          // Non-blocking
-        }
-      }
-      const metaProfile = ((authUserMeta?.profile || {}) as Record<string, unknown>);
+    const runSync = async (): Promise<boolean> => {
+      setIsProfileLoading(true);
+      try {
+        const fetchPromise = supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-      if (profile && !error) {
-        const p = profile as Record<string, unknown>;
-        const isOnboarded = Boolean(
-          (p.onboarding_completed as boolean) ||
-          (authUserMeta?.onboarding_completed as boolean) ||
-          (metaProfile.onboarding_completed as boolean) ||
-          (p.city && String(p.city).trim() !== '' && p.college && String(p.college).trim() !== '') ||
-          (metaProfile.city && String(metaProfile.city).trim() !== '' && metaProfile.college && String(metaProfile.college).trim() !== '')
+        const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 3500)
         );
-        setHasCompletedOnboarding(isOnboarded);
 
-        login({
-          name: (p.name as string) || (metaProfile.name as string) || (authUserMeta?.name as string) || defaultName || currentUser?.name || 'Student',
-          state: (currentUser?.state as string) || '',
-          city: (p.city as string) || (metaProfile.city as string) || currentUser?.city || '',
-          college: (p.college as string) || (metaProfile.college as string) || currentUser?.college || '',
-          domain: ((p.domain as Domain) || (metaProfile.domain as Domain) || currentUser?.domain || 'engineering'),
-          degree: (p.degree as string) || (metaProfile.degree as string) || currentUser?.degree || '',
-          specialization: (p.specialization as string) || (metaProfile.specialization as string) || currentUser?.specialization || '',
-          year: (metaProfile.year as string) || currentUser?.year || '',
-          semester: (p.semester as string) || (metaProfile.semester as string) || currentUser?.semester || '',
-          graduationYear: (p.graduation_year as string) || (metaProfile.graduation_year as string) || (metaProfile.graduationYear as string) || currentUser?.graduationYear || '',
-          targetRole: (p.target_role as string) || (metaProfile.target_role as string) || (metaProfile.targetRole as string) || currentUser?.targetRole || '',
-          targetCompanies: Array.isArray(p.target_companies) ? (p.target_companies as string[]) : (Array.isArray(metaProfile.target_companies) ? (metaProfile.target_companies as string[]) : (currentUser?.targetCompanies || [])),
-          dreamCompany: (p.dream_company as string) || (metaProfile.dream_company as string) || (metaProfile.dreamCompany as string) || currentUser?.dreamCompany || '',
-          dreamJob: (p.target_role as string) || (metaProfile.target_role as string) || currentUser?.dreamJob || '',
-          targetSalary: (metaProfile.target_salary as string) || (metaProfile.targetSalary as string) || currentUser?.targetSalary || '',
-          timeline: (metaProfile.timeline as string) || currentUser?.timeline || '6',
-          preparingFor: (p.preparing_for as string) || (metaProfile.preparing_for as string) || (metaProfile.preparingFor as string) || currentUser?.preparingFor,
-          targetJobType: (p.target_job_type as string) || (metaProfile.target_job_type as string) || (metaProfile.targetJobType as string) || currentUser?.targetJobType,
-          targetGoal: (p.target_goal as string) || (metaProfile.target_goal as string) || (metaProfile.targetGoal as string) || currentUser?.targetGoal,
-          experience: (p.experience as StudentExperience) || (metaProfile.experience as StudentExperience) || currentUser?.experience,
-          baselineAssessment: (p.baseline_assessment as BaselineAssessmentResult) || (metaProfile.baseline_assessment as BaselineAssessmentResult) || (metaProfile.baselineAssessment as BaselineAssessmentResult) || currentUser?.baselineAssessment,
-          topicCompetencies: (p.topic_competencies as Record<string, TopicCompetency>) || (metaProfile.topic_competencies as Record<string, TopicCompetency>) || (metaProfile.topicCompetencies as Record<string, TopicCompetency>) || currentUser?.topicCompetencies,
-          personalityTrait: (p.personality_trait as string) || (metaProfile.personality_trait as string) || currentUser?.personalityTrait,
-          skills: Array.isArray(p.skills) && p.skills.length > 0 ? (p.skills as StudentSkill[]) : (Array.isArray(metaProfile.skills) ? (metaProfile.skills as StudentSkill[]) : (currentUser?.skills || [])),
-          dsaLevel: (p.dsa_level as ReadinessLevel) || (metaProfile.dsa_level as ReadinessLevel) || (metaProfile.dsaLevel as ReadinessLevel) || currentUser?.dsaLevel,
-          csFundamentalsLevel: (p.cs_fundamentals_level as ReadinessLevel) || (metaProfile.cs_fundamentals_level as ReadinessLevel) || (metaProfile.csFundamentalsLevel as ReadinessLevel) || currentUser?.csFundamentalsLevel,
-          aptitudeLevel: (p.aptitude_level as ReadinessLevel) || (metaProfile.aptitude_level as ReadinessLevel) || (metaProfile.aptitudeLevel as ReadinessLevel) || currentUser?.aptitudeLevel,
-          communicationLevel: (p.communication_level as ReadinessLevel) || (metaProfile.communication_level as ReadinessLevel) || (metaProfile.communicationLevel as ReadinessLevel) || currentUser?.communicationLevel,
-          personalityScore: currentUser?.personalityScore || { iq: 50, eq: 50, rq: 50 },
-          weakPoints: currentUser?.weakPoints || [],
-        }, {
-          score: (p.score as number) || currentStore.score || 0,
-          tasksDone: (p.tasks_done as number) || currentStore.tasksDone || 0,
-          streak: (p.streak as number) || currentStore.streak || 1,
-        });
+        const { data: profile, error } = await Promise.race([fetchPromise, timeoutPromise]);
+        const currentStore = useStationStore.getState();
+        const currentUser = currentStore.user;
 
-        useStationStore.getState().setStats({
-          score: (p.score as number) || currentStore.score || 0,
-          tasksDone: (p.tasks_done as number) || currentStore.tasksDone || 0,
-          streak: (p.streak as number) || currentStore.streak || 1,
-        });
+        // Extract metadata directly from the provided user object or store without making extra network requests
+        const authUserMeta = userObject?.user_metadata;
+        const metaProfile = ((authUserMeta?.profile || {}) as Record<string, unknown>);
 
-        return isOnboarded;
+        if (profile && !error) {
+          const p = profile as Record<string, unknown>;
+          const isOnboarded = Boolean(
+            (p.onboarding_completed as boolean) ||
+            (authUserMeta?.onboarding_completed as boolean) ||
+            (metaProfile.onboarding_completed as boolean) ||
+            (p.city && String(p.city).trim() !== '' && p.college && String(p.college).trim() !== '') ||
+            (metaProfile.city && String(metaProfile.city).trim() !== '' && metaProfile.college && String(metaProfile.college).trim() !== '')
+          );
+          setHasCompletedOnboarding(isOnboarded);
+
+          login({
+            name: (p.name as string) || (metaProfile.name as string) || (authUserMeta?.name as string) || defaultName || currentUser?.name || 'Student',
+            state: (currentUser?.state as string) || '',
+            city: (p.city as string) || (metaProfile.city as string) || currentUser?.city || '',
+            college: (p.college as string) || (metaProfile.college as string) || currentUser?.college || '',
+            domain: ((p.domain as Domain) || (metaProfile.domain as Domain) || currentUser?.domain || 'engineering'),
+            degree: (p.degree as string) || (metaProfile.degree as string) || currentUser?.degree || '',
+            specialization: (p.specialization as string) || (metaProfile.specialization as string) || currentUser?.specialization || '',
+            year: (metaProfile.year as string) || currentUser?.year || '',
+            semester: (p.semester as string) || (metaProfile.semester as string) || currentUser?.semester || '',
+            graduationYear: (p.graduation_year as string) || (metaProfile.graduation_year as string) || (metaProfile.graduationYear as string) || currentUser?.graduationYear || '',
+            targetRole: (p.target_role as string) || (metaProfile.target_role as string) || (metaProfile.targetRole as string) || currentUser?.targetRole || '',
+            targetCompanies: Array.isArray(p.target_companies) ? (p.target_companies as string[]) : (Array.isArray(metaProfile.target_companies) ? (metaProfile.target_companies as string[]) : (currentUser?.targetCompanies || [])),
+            dreamCompany: (p.dream_company as string) || (metaProfile.dream_company as string) || (metaProfile.dreamCompany as string) || currentUser?.dreamCompany || '',
+            dreamJob: (p.target_role as string) || (metaProfile.target_role as string) || currentUser?.dreamJob || '',
+            targetSalary: (metaProfile.target_salary as string) || (metaProfile.targetSalary as string) || currentUser?.targetSalary || '',
+            timeline: (metaProfile.timeline as string) || currentUser?.timeline || '6',
+            preparingFor: (p.preparing_for as string) || (metaProfile.preparing_for as string) || (metaProfile.preparingFor as string) || currentUser?.preparingFor,
+            targetJobType: (p.target_job_type as string) || (metaProfile.target_job_type as string) || (metaProfile.targetJobType as string) || currentUser?.targetJobType,
+            targetGoal: (p.target_goal as string) || (metaProfile.target_goal as string) || (metaProfile.targetGoal as string) || currentUser?.targetGoal,
+            experience: (p.experience as StudentExperience) || (metaProfile.experience as StudentExperience) || currentUser?.experience,
+            baselineAssessment: (p.baseline_assessment as BaselineAssessmentResult) || (metaProfile.baseline_assessment as BaselineAssessmentResult) || (metaProfile.baselineAssessment as BaselineAssessmentResult) || currentUser?.baselineAssessment,
+            topicCompetencies: (p.topic_competencies as Record<string, TopicCompetency>) || (metaProfile.topic_competencies as Record<string, TopicCompetency>) || (metaProfile.topicCompetencies as Record<string, TopicCompetency>) || currentUser?.topicCompetencies,
+            personalityTrait: (p.personality_trait as string) || (metaProfile.personality_trait as string) || currentUser?.personalityTrait,
+            skills: Array.isArray(p.skills) && p.skills.length > 0 ? (p.skills as StudentSkill[]) : (Array.isArray(metaProfile.skills) ? (metaProfile.skills as StudentSkill[]) : (currentUser?.skills || [])),
+            dsaLevel: (p.dsa_level as ReadinessLevel) || (metaProfile.dsa_level as ReadinessLevel) || (metaProfile.dsaLevel as ReadinessLevel) || currentUser?.dsaLevel,
+            csFundamentalsLevel: (p.cs_fundamentals_level as ReadinessLevel) || (metaProfile.cs_fundamentals_level as ReadinessLevel) || (metaProfile.csFundamentalsLevel as ReadinessLevel) || currentUser?.csFundamentalsLevel,
+            aptitudeLevel: (p.aptitude_level as ReadinessLevel) || (metaProfile.aptitude_level as ReadinessLevel) || (metaProfile.aptitudeLevel as ReadinessLevel) || currentUser?.aptitudeLevel,
+            communicationLevel: (p.communication_level as ReadinessLevel) || (metaProfile.communication_level as ReadinessLevel) || (metaProfile.communicationLevel as ReadinessLevel) || currentUser?.communicationLevel,
+            personalityScore: currentUser?.personalityScore || { iq: 50, eq: 50, rq: 50 },
+            weakPoints: currentUser?.weakPoints || [],
+          }, {
+            score: (p.score as number) || currentStore.score || 0,
+            tasksDone: (p.tasks_done as number) || currentStore.tasksDone || 0,
+            streak: (p.streak as number) || currentStore.streak || 1,
+          });
+
+          useStationStore.getState().setStats({
+            score: (p.score as number) || currentStore.score || 0,
+            tasksDone: (p.tasks_done as number) || currentStore.tasksDone || 0,
+            streak: (p.streak as number) || currentStore.streak || 1,
+          });
+
+          return isOnboarded;
+        }
+
+        // If user profile wasn't in profiles table yet, check if auth user metadata has it
+        if (authUserMeta?.onboarding_completed || (metaProfile.city && metaProfile.college)) {
+          setHasCompletedOnboarding(true);
+          login({
+            name: (metaProfile.name as string) || (authUserMeta?.name as string) || defaultName || currentUser?.name || 'Student',
+            state: currentUser?.state || '',
+            city: (metaProfile.city as string) || currentUser?.city || '',
+            college: (metaProfile.college as string) || currentUser?.college || '',
+            domain: ((metaProfile.domain as Domain) || currentUser?.domain || 'engineering'),
+            degree: (metaProfile.degree as string) || currentUser?.degree || '',
+            specialization: (metaProfile.specialization as string) || currentUser?.specialization || '',
+            year: (metaProfile.year as string) || currentUser?.year || '',
+            semester: (metaProfile.semester as string) || currentUser?.semester || '',
+            graduationYear: (metaProfile.graduation_year as string) || (metaProfile.graduationYear as string) || currentUser?.graduationYear || '',
+            targetRole: (metaProfile.target_role as string) || (metaProfile.targetRole as string) || currentUser?.targetRole || '',
+            targetCompanies: Array.isArray(metaProfile.target_companies) && metaProfile.target_companies.length > 0 ? (metaProfile.target_companies as string[]) : (currentUser?.targetCompanies || []),
+            dreamCompany: (metaProfile.dream_company as string) || (metaProfile.dreamCompany as string) || currentUser?.dreamCompany || '',
+            dreamJob: (metaProfile.target_role as string) || currentUser?.dreamJob || '',
+            targetSalary: (metaProfile.target_salary as string) || (metaProfile.targetSalary as string) || currentUser?.targetSalary || '',
+            timeline: (metaProfile.timeline as string) || currentUser?.timeline || '6',
+            preparingFor: (metaProfile.preparing_for as string) || (metaProfile.preparingFor as string) || currentUser?.preparingFor,
+            targetJobType: (metaProfile.target_job_type as string) || (metaProfile.targetJobType as string) || currentUser?.targetJobType,
+            targetGoal: (metaProfile.target_goal as string) || (metaProfile.targetGoal as string) || currentUser?.targetGoal,
+            experience: (metaProfile.experience as StudentExperience) || currentUser?.experience,
+            baselineAssessment: (metaProfile.baseline_assessment as BaselineAssessmentResult) || (metaProfile.baselineAssessment as BaselineAssessmentResult) || currentUser?.baselineAssessment,
+            topicCompetencies: (metaProfile.topic_competencies as Record<string, TopicCompetency>) || (metaProfile.topicCompetencies as Record<string, TopicCompetency>) || currentUser?.topicCompetencies,
+            personalityTrait: (metaProfile.personality_trait as string) || currentUser?.personalityTrait,
+            skills: Array.isArray(metaProfile.skills) && metaProfile.skills.length > 0 ? (metaProfile.skills as StudentSkill[]) : (currentUser?.skills || []),
+            dsaLevel: (metaProfile.dsa_level as ReadinessLevel) || (metaProfile.dsaLevel as ReadinessLevel) || currentUser?.dsaLevel,
+            csFundamentalsLevel: (metaProfile.cs_fundamentals_level as ReadinessLevel) || (metaProfile.csFundamentalsLevel as ReadinessLevel) || currentUser?.csFundamentalsLevel,
+            aptitudeLevel: (metaProfile.aptitude_level as ReadinessLevel) || (metaProfile.aptitudeLevel as ReadinessLevel) || currentUser?.aptitudeLevel,
+            communicationLevel: (metaProfile.communication_level as ReadinessLevel) || (metaProfile.communicationLevel as ReadinessLevel) || currentUser?.communicationLevel,
+            personalityScore: currentUser?.personalityScore || { iq: 50, eq: 50, rq: 50 },
+            weakPoints: currentUser?.weakPoints || [],
+          }, {
+            score: currentStore.score || 0,
+            tasksDone: currentStore.tasksDone || 0,
+            streak: currentStore.streak || 1,
+          });
+          return true;
+        }
+      } catch {
+        // Profile fetch failed (e.g. backend unreachable)
+      } finally {
+        setIsProfileLoading(false);
+        activeSyncRef.current = null;
       }
 
-      // If user profile wasn't in profiles table yet, check if auth user metadata has it
-      if (authUserMeta?.onboarding_completed || (metaProfile.city && metaProfile.college)) {
-        setHasCompletedOnboarding(true);
+      // If user already has an established profile in store, preserve it rather than overwriting with empty defaults
+      if (currentUser && (currentStore.hasCompletedOnboarding || currentUser.college || currentUser.city)) {
+        const localIsOnboarded = Boolean(currentStore.hasCompletedOnboarding || (currentUser.city && currentUser.college));
+        setHasCompletedOnboarding(localIsOnboarded);
+        return localIsOnboarded;
+      }
+
+      // Default fallback in store only if user has no existing profile data
+      setHasCompletedOnboarding(false);
+      if (!currentUser) {
         login({
-          name: (metaProfile.name as string) || (authUserMeta?.name as string) || defaultName || 'Student',
+          name: defaultName || 'Student',
           state: '',
-          city: (metaProfile.city as string) || '',
-          college: (metaProfile.college as string) || '',
-          domain: ((metaProfile.domain as Domain) || 'engineering'),
-          degree: (metaProfile.degree as string) || '',
-          specialization: (metaProfile.specialization as string) || '',
-          year: (metaProfile.year as string) || '',
-          semester: (metaProfile.semester as string) || '',
-          graduationYear: (metaProfile.graduation_year as string) || '',
-          targetRole: (metaProfile.target_role as string) || '',
-          targetCompanies: Array.isArray(metaProfile.target_companies) ? (metaProfile.target_companies as string[]) : [],
-          dreamCompany: (metaProfile.dream_company as string) || '',
-          dreamJob: (metaProfile.target_role as string) || '',
-          targetSalary: (metaProfile.target_salary as string) || '',
-          timeline: (metaProfile.timeline as string) || '6',
-          preparingFor: (metaProfile.preparing_for as string) || undefined,
-          targetJobType: (metaProfile.target_job_type as string) || undefined,
-          targetGoal: (metaProfile.target_goal as string) || undefined,
-          experience: (metaProfile.experience as StudentExperience) || undefined,
-          baselineAssessment: (metaProfile.baseline_assessment as BaselineAssessmentResult) || undefined,
-          topicCompetencies: (metaProfile.topic_competencies as Record<string, TopicCompetency>) || undefined,
-          personalityTrait: (metaProfile.personality_trait as string) || undefined,
-          skills: Array.isArray(metaProfile.skills) ? (metaProfile.skills as StudentSkill[]) : [],
-          dsaLevel: (metaProfile.dsa_level as ReadinessLevel) || undefined,
-          csFundamentalsLevel: (metaProfile.cs_fundamentals_level as ReadinessLevel) || undefined,
-          aptitudeLevel: (metaProfile.aptitude_level as ReadinessLevel) || undefined,
-          communicationLevel: (metaProfile.communication_level as ReadinessLevel) || undefined,
+          city: '',
+          college: '',
+          domain: currentStore.domain || 'engineering',
+          specialization: '',
+          year: '',
+          dreamCompany: '',
+          dreamJob: '',
+          targetSalary: '',
+          timeline: '',
           personalityScore: { iq: 50, eq: 50, rq: 50 },
           weakPoints: [],
         }, {
@@ -224,35 +265,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           tasksDone: currentStore.tasksDone || 0,
           streak: currentStore.streak || 1,
         });
-        return true;
       }
-    } catch {
-      // Profile fetch failed (e.g. backend unreachable)
-    }
+      return false;
+    };
 
-    // Default fallback in store only if user has not completed onboarding
-    setHasCompletedOnboarding(false);
-    login({
-      name: defaultName || 'Student',
-      state: '',
-      city: '',
-      college: '',
-      domain: 'engineering',
-      specialization: '',
-      year: '',
-      dreamCompany: '',
-      dreamJob: '',
-      targetSalary: '',
-      timeline: '',
-      personalityScore: { iq: 50, eq: 50, rq: 50 },
-      weakPoints: [],
-    }, {
-      score: 0,
-      tasksDone: 0,
-      streak: 1,
-    });
-    return false;
-  }, [login, user]);
+    const syncPromise = runSync();
+    activeSyncRef.current = { userId, promise: syncPromise };
+    return syncPromise;
+  }, [login]);
 
   useEffect(() => {
     let isMounted = true;
@@ -260,33 +280,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Safety timeout to ensure authentication verification NEVER stalls indefinitely
     const authTimeout = setTimeout(() => {
       if (isMounted) {
-        setIsLoading(false);
+        setIsAuthInitializing(false);
+        setIsProfileLoading(false);
       }
     }, 4500);
 
-    // 1. Initial session load
+    // 1. Initial session load directly from persisted storage
     const initializeAuth = async () => {
       try {
-        const getSessionPromise = supabase.auth.getSession();
-        const sessionTimeoutPromise = new Promise<{ data: { session: null }; error: Error }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null }, error: new Error('GetSession timeout') }), 3500)
-        );
-
-        const { data: { session: initialSession } } = await Promise.race([getSessionPromise, sessionTimeoutPromise]);
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         if (!isMounted) return;
+
+        if (sessionError) {
+          console.warn('Initial session lookup notice:', formatAuthError(sessionError));
+        }
 
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
+        setIsAuthInitializing(false);
 
         if (initialSession?.user) {
           const userName = (initialSession.user.user_metadata?.name as string) || 'Student';
-          await syncUserProfile(initialSession.user.id, userName);
+          await syncUserProfile(initialSession.user.id, userName, initialSession.user);
+        } else {
+          setIsProfileLoading(false);
         }
-      } catch {
-        // If Supabase is unreachable, fail gracefully without crashing
+      } catch (err) {
+        if (isMounted) {
+          console.warn('Auth initialization notice:', err);
+          setIsAuthInitializing(false);
+          setIsProfileLoading(false);
+        }
       } finally {
         if (isMounted) {
-          setIsLoading(false);
           clearTimeout(authTimeout);
         }
       }
@@ -298,6 +324,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       if (!isMounted) return;
 
+      if (event === 'INITIAL_SESSION') {
+        if (currentSession?.user) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          setIsAuthInitializing(false);
+          const userName = (currentSession.user.user_metadata?.name as string) || 'Student';
+          syncUserProfile(currentSession.user.id, userName, currentSession.user).catch(() => {});
+        } else {
+          setSession(null);
+          setUser(null);
+          setIsAuthInitializing(false);
+          setIsProfileLoading(false);
+        }
+        return;
+      }
+
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
@@ -308,20 +350,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_OUT') {
         setIsPasswordRecovery(false);
         setHasCompletedOnboarding(false);
+        setIsAuthInitializing(false);
+        setIsProfileLoading(false);
         useStationStore.getState().logout();
-        setIsLoading(false);
       } else if (currentSession?.user) {
-        // Run sync asynchronously so it never deadlocks auth subscription
+        setIsAuthInitializing(false);
         const userName = (currentSession.user.user_metadata?.name as string) || 'Student';
-        syncUserProfile(currentSession.user.id, userName)
-          .catch(() => {})
-          .finally(() => {
-            if (isMounted) {
-              setIsLoading(false);
-            }
-          });
+        syncUserProfile(currentSession.user.id, userName, currentSession.user).catch(() => {});
       } else {
-        setIsLoading(false);
+        setIsAuthInitializing(false);
+        setIsProfileLoading(false);
       }
     });
 
@@ -333,7 +371,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [syncUserProfile]);
 
   const signOut = async () => {
-    setIsLoading(true);
+    setIsProfileLoading(true);
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -342,13 +380,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout();
       setSession(null);
       setUser(null);
+      setHasCompletedOnboarding(false);
       setIsPasswordRecovery(false);
-      setIsLoading(false);
+      setIsAuthInitializing(false);
+      setIsProfileLoading(false);
     }
   };
 
   const refreshProfile = async (userId: string): Promise<boolean> => {
-    return syncUserProfile(userId);
+    return syncUserProfile(userId, undefined, user);
   };
 
   const updateProfile = async (updates: UpdateProfileData): Promise<{ error: Error | null }> => {

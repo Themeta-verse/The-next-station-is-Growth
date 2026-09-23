@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStationStore } from '@/store/useStationStore';
 import { usePerformanceStore } from '@/store/usePerformanceStore';
@@ -36,31 +36,55 @@ export default function JobReadinessCalculator() {
   const { topicPerformance } = usePerformanceStore();
   const isHi = language === 'hi';
 
+  const activeDomain = ((user?.domain || domain || 'engineering').toLowerCase()) as Domain;
+
+  const domainCompanies = useMemo(() => {
+    const list = SUPPORTED_COMPANIES.filter(c => c.domain.toLowerCase() === activeDomain);
+    return list.length > 0 ? list : SUPPORTED_COMPANIES;
+  }, [activeDomain]);
+
+  const defaultCompany = useMemo(() => {
+    if (user?.dreamCompany) {
+      const norm = user.dreamCompany.toLowerCase();
+      const match = domainCompanies.find(c => c.name.toLowerCase() === norm || c.id === norm);
+      if (match) return match;
+    }
+    return domainCompanies[0] || SUPPORTED_COMPANIES[0];
+  }, [domainCompanies, user?.dreamCompany]);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('google');
-  const [selectedRoleName, setSelectedRoleName] = useState<string>('Software Engineer (L3 / SDE-1)');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(() => defaultCompany.id);
+  const [selectedRoleName, setSelectedRoleName] = useState<string>(() => defaultCompany.roles[0]?.role || '');
   const [requestedCompany, setRequestedCompany] = useState(false);
   const [activeTierFilter, setActiveTierFilter] = useState<string>('all');
 
   const [showCalculationModal, setShowCalculationModal] = useState(false);
 
-  // Filtered companies
+  useEffect(() => {
+    const existsInDomain = domainCompanies.some(c => c.id === selectedCompanyId);
+    if (!existsInDomain && defaultCompany) {
+      setSelectedCompanyId(defaultCompany.id);
+      setSelectedRoleName(defaultCompany.roles[0]?.role || '');
+    }
+  }, [domainCompanies, selectedCompanyId, defaultCompany]);
+
+  // Filtered companies scoped to the student's active domain
   const filteredCompanies = useMemo(() => {
-    return searchCompanies(searchQuery, undefined).filter(c => {
+    return searchCompanies(searchQuery, activeDomain).filter(c => {
       if (activeTierFilter === 'all') return true;
       if (activeTierFilter === 'tier1') return c.tierCategory.includes('Tier 1');
       if (activeTierFilter === 'tier2') return c.tierCategory.includes('Tier 2');
       if (activeTierFilter === 'tier3') return c.tierCategory.includes('Tier 3');
-      if (activeTierFilter === 'banking') return c.tierCategory.includes('Banking');
-      if (activeTierFilter === 'civil') return c.tierCategory.includes('Civil');
+      if (activeTierFilter === 'banking') return c.tierCategory.includes('Banking') || c.tierCategory.includes('Financial');
+      if (activeTierFilter === 'civil') return c.tierCategory.includes('Civil') || c.tierCategory.includes('Public');
       return true;
     });
-  }, [searchQuery, activeTierFilter]);
+  }, [searchQuery, activeTierFilter, activeDomain]);
 
   // Active company
   const activeCompany = useMemo(() => {
-    return SUPPORTED_COMPANIES.find(c => c.id === selectedCompanyId) || SUPPORTED_COMPANIES[0];
-  }, [selectedCompanyId]);
+    return domainCompanies.find(c => c.id === selectedCompanyId) || domainCompanies[0] || defaultCompany;
+  }, [domainCompanies, selectedCompanyId, defaultCompany]);
 
   // Selected role
   const activeRole = useMemo(() => {
@@ -165,14 +189,23 @@ export default function JobReadinessCalculator() {
       {/* Tier Category Filters */}
       <div className="flex flex-wrap gap-1.5 items-center">
         <span className="text-[11px] font-semibold text-muted-foreground mr-1">Categories:</span>
-        {[
-          { id: 'all', label: 'All Companies' },
-          { id: 'tier1', label: 'Tier 1 (Product)' },
-          { id: 'tier2', label: 'Tier 2 (Growth)' },
-          { id: 'tier3', label: 'Tier 3 (Enterprise)' },
-          { id: 'banking', label: 'Banking & Finance' },
-          { id: 'civil', label: 'Civil Services' },
-        ].map(cat => (
+        {(activeDomain === 'commerce'
+          ? [
+              { id: 'all', label: 'All Commerce' },
+              { id: 'banking', label: 'Banking & Financial' },
+            ]
+          : activeDomain === 'arts'
+          ? [
+              { id: 'all', label: 'All Public Sector' },
+              { id: 'civil', label: 'Civil Services & PSC' },
+            ]
+          : [
+              { id: 'all', label: 'All Tech' },
+              { id: 'tier1', label: 'Tier 1 (Product)' },
+              { id: 'tier2', label: 'Tier 2 (Growth)' },
+              { id: 'tier3', label: 'Tier 3 (Enterprise)' },
+            ]
+        ).map(cat => (
           <button
             key={cat.id}
             type="button"
@@ -351,13 +384,30 @@ export default function JobReadinessCalculator() {
               </h5>
 
               <div className="space-y-2.5">
-                {[
-                  { label: 'Technical Skill Match', score: readinessResult.technicalSkillScore, weight: '30%', icon: Layers },
-                  { label: 'DSA & Algorithms', score: readinessResult.dsaScore, weight: '25%', icon: Brain },
-                  { label: 'CS Fundamentals (DBMS/OS)', score: readinessResult.csFundamentalsScore, weight: '20%', icon: Building },
-                  { label: 'Aptitude & Problem Solving', score: readinessResult.aptitudeScore, weight: '15%', icon: Target },
-                  { label: 'Interview & Communication', score: readinessResult.interviewScore, weight: '10%', icon: TrendingUp },
-                ].map(p => (
+                {(activeDomain === 'commerce'
+                  ? [
+                      { label: 'Financial & Domain Skills', score: readinessResult.technicalSkillScore, weight: '35%', icon: Layers },
+                      { label: 'Banking & Corporate Regulations', score: readinessResult.csFundamentalsScore, weight: '20%', icon: Building },
+                      { label: 'Quantitative Aptitude & DI', score: readinessResult.aptitudeScore, weight: '20%', icon: Target },
+                      { label: 'Financial Modeling & Excel Tools', score: readinessResult.dsaScore, weight: '15%', icon: Brain },
+                      { label: 'Business Communication & Viva', score: readinessResult.interviewScore, weight: '10%', icon: TrendingUp },
+                    ]
+                  : activeDomain === 'arts'
+                  ? [
+                      { label: 'Core Syllabus / Polity & GS', score: readinessResult.technicalSkillScore, weight: '35%', icon: Layers },
+                      { label: 'Constitutional & Governance Principles', score: readinessResult.csFundamentalsScore, weight: '25%', icon: Building },
+                      { label: 'CSAT & Analytical Aptitude', score: readinessResult.aptitudeScore, weight: '20%', icon: Target },
+                      { label: 'Board Interview & Personality', score: readinessResult.interviewScore, weight: '10%', icon: TrendingUp },
+                      { label: 'Essay & Answer Writing', score: readinessResult.dsaScore, weight: '10%', icon: Brain },
+                    ]
+                  : [
+                      { label: 'Technical Skill Match', score: readinessResult.technicalSkillScore, weight: '30%', icon: Layers },
+                      { label: 'DSA & Algorithms', score: readinessResult.dsaScore, weight: '25%', icon: Brain },
+                      { label: 'CS Fundamentals (DBMS/OS)', score: readinessResult.csFundamentalsScore, weight: '20%', icon: Building },
+                      { label: 'Aptitude & Problem Solving', score: readinessResult.aptitudeScore, weight: '15%', icon: Target },
+                      { label: 'Interview & Communication', score: readinessResult.interviewScore, weight: '10%', icon: TrendingUp },
+                    ]
+                ).map(p => (
                   <div key={p.label} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-foreground flex items-center gap-1.5">
@@ -401,38 +451,123 @@ export default function JobReadinessCalculator() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[
-                {
-                  area: 'Applied Tech Stack Match',
-                  baseline: user?.baselineAssessment ? Math.max(30, user.baselineAssessment.overallScore - 15) : 35,
-                  current: readinessResult.technicalSkillScore,
-                  target: 75,
-                },
-                {
-                  area: 'Algorithmic Problem Solving',
-                  baseline: user?.baselineAssessment?.categoryBreakdown['Data Structures & Algorithms'] === 'Advanced' ? 70 : user?.baselineAssessment?.categoryBreakdown['Data Structures & Algorithms'] === 'Intermediate' ? 50 : 30,
-                  current: readinessResult.dsaScore,
-                  target: activeRole.dsaExpectation === 'Advanced' ? 85 : 70,
-                },
-                {
-                  area: 'CS Core Principles',
-                  baseline: user?.baselineAssessment?.categoryBreakdown['Core Programming'] === 'Advanced' ? 75 : 45,
-                  current: readinessResult.csFundamentalsScore,
-                  target: activeRole.csFundamentalsExpectation === 'Advanced' ? 80 : 65,
-                },
-                {
-                  area: 'Aptitude & Analytical Logic',
-                  baseline: 45,
-                  current: readinessResult.aptitudeScore,
-                  target: activeRole.aptitudeExpectation === 'Advanced' ? 80 : 70,
-                },
-                {
-                  area: 'Interview & STAR Method',
-                  baseline: 40,
-                  current: readinessResult.interviewScore,
-                  target: activeRole.interviewExpectation === 'Advanced' ? 85 : 70,
-                },
-              ].map(dim => {
+              {(() => {
+                const baseline = user?.baselineAssessment as (Record<string, unknown> | undefined);
+                const breakdown = (baseline?.categoryBreakdown || baseline?.skillBreakdown || {}) as Record<string, string>;
+
+                const getScoreForSkill = (skillNames: string[], defaultFallback: number) => {
+                  for (const s of skillNames) {
+                    if (breakdown && breakdown[s]) {
+                      const val = breakdown[s];
+                      return val === 'Advanced' ? 75 : val === 'Intermediate' ? 55 : 35;
+                    }
+                  }
+                  if (typeof baseline?.overallScore === 'number') return Math.max(30, baseline.overallScore - 15);
+                  if (typeof baseline?.score === 'number') return Math.max(30, baseline.score - 15);
+                  return defaultFallback;
+                };
+
+                const dimensionList = activeDomain === 'commerce'
+                  ? [
+                      {
+                        area: 'Financial Accounting & Reporting',
+                        baseline: getScoreForSkill(['Financial Accounting', 'Corporate Finance', 'Accounting Standards (IndAS/IFRS)'], 40),
+                        current: readinessResult.technicalSkillScore,
+                        target: 75,
+                      },
+                      {
+                        area: 'Banking Awareness & Corporate Law',
+                        baseline: getScoreForSkill(['Banking Awareness', 'Corporate Law', 'Taxation & Auditing'], 45),
+                        current: readinessResult.csFundamentalsScore,
+                        target: activeRole.csFundamentalsExpectation === 'Advanced' ? 80 : 65,
+                      },
+                      {
+                        area: 'Quantitative Aptitude & Data Interpretation',
+                        baseline: getScoreForSkill(['Quantitative Aptitude', 'Advanced Excel'], 50),
+                        current: readinessResult.aptitudeScore,
+                        target: activeRole.aptitudeExpectation === 'Advanced' ? 85 : 70,
+                      },
+                      {
+                        area: 'Business Communication & Viva',
+                        baseline: 40,
+                        current: readinessResult.interviewScore,
+                        target: activeRole.interviewExpectation === 'Advanced' ? 85 : 70,
+                      },
+                      {
+                        area: 'Financial Modeling & Excel Tools',
+                        baseline: getScoreForSkill(['Excel & Financial Modeling', 'Advanced Excel'], 35),
+                        current: readinessResult.dsaScore,
+                        target: activeRole.dsaExpectation === 'Advanced' ? 80 : 65,
+                      },
+                    ]
+                  : activeDomain === 'arts'
+                  ? [
+                      {
+                        area: 'Indian Polity & Constitution',
+                        baseline: getScoreForSkill(['Indian Polity & Constitution', 'Indian Polity & Governance'], 45),
+                        current: readinessResult.technicalSkillScore,
+                        target: 80,
+                      },
+                      {
+                        area: 'Modern History & General Studies',
+                        baseline: getScoreForSkill(['Modern Indian History', 'Current Affairs Analysis'], 40),
+                        current: readinessResult.csFundamentalsScore,
+                        target: activeRole.csFundamentalsExpectation === 'Advanced' ? 80 : 65,
+                      },
+                      {
+                        area: 'Logical Reasoning & CSAT Logic',
+                        baseline: getScoreForSkill(['Logical Reasoning & CSAT', 'Quantitative Aptitude'], 50),
+                        current: readinessResult.aptitudeScore,
+                        target: activeRole.aptitudeExpectation === 'Advanced' ? 85 : 70,
+                      },
+                      {
+                        area: 'Personality Test & Board Interview',
+                        baseline: 45,
+                        current: readinessResult.interviewScore,
+                        target: activeRole.interviewExpectation === 'Advanced' ? 85 : 70,
+                      },
+                      {
+                        area: 'Essay & Structured Articulation',
+                        baseline: getScoreForSkill(['Essay & Answer Writing', 'Ethics, Integrity & Aptitude'], 40),
+                        current: readinessResult.dsaScore,
+                        target: activeRole.dsaExpectation === 'Advanced' ? 80 : 65,
+                      },
+                    ]
+                  : [
+                      {
+                        area: 'Applied Tech Stack Match',
+                        baseline: baseline ? Math.max(30, ((typeof baseline.overallScore === 'number' ? baseline.overallScore : typeof baseline.score === 'number' ? baseline.score : 50) - 15)) : 35,
+                        current: readinessResult.technicalSkillScore,
+                        target: 75,
+                      },
+                      {
+                        area: 'Algorithmic Problem Solving',
+                        baseline: getScoreForSkill(['Data Structures & Algorithms', 'Data Structures', 'Algorithms'], 40),
+                        current: readinessResult.dsaScore,
+                        target: activeRole.dsaExpectation === 'Advanced' ? 85 : 70,
+                      },
+                      {
+                        area: 'CS Core Principles',
+                        baseline: getScoreForSkill(['Core Programming', 'Operating Systems', 'Database Management', 'SQL / DBMS'], 45),
+                        current: readinessResult.csFundamentalsScore,
+                        target: activeRole.csFundamentalsExpectation === 'Advanced' ? 80 : 65,
+                      },
+                      {
+                        area: 'Aptitude & Analytical Logic',
+                        baseline: 45,
+                        current: readinessResult.aptitudeScore,
+                        target: activeRole.aptitudeExpectation === 'Advanced' ? 80 : 70,
+                      },
+                      {
+                        area: 'Interview & STAR Method',
+                        baseline: 40,
+                        current: readinessResult.interviewScore,
+                        target: activeRole.interviewExpectation === 'Advanced' ? 85 : 70,
+                      },
+                    ];
+
+                return dimensionList;
+              })().map(dim => {
                 const growth = dim.current - dim.baseline;
                 const gapToTarget = dim.target - dim.current;
 

@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { formatAuthError, isSupabaseConfigured, getUrlAuthError, clearUrlAuthParams } from '@/integrations/supabase/client';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import * as AuthContextModule from '@/context/AuthContext';
+import { useStationStore } from '@/store/useStationStore';
 
 describe('formatAuthError', () => {
   it('translates "Failed to fetch" into a clear, actionable message', () => {
@@ -274,4 +275,50 @@ describe('ProtectedRoute component', () => {
     expect(screen.getByText('Auth Page')).toBeInTheDocument();
     expect(screen.queryByText('Settings Page')).not.toBeInTheDocument();
   });
+
+  it('redirects already onboarded user from /onboarding to /dashboard', () => {
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      user: { id: 'test-user-id' } as unknown as import('@supabase/supabase-js').User,
+      session: { user: { id: 'test-user-id' } } as unknown as import('@supabase/supabase-js').Session,
+      isLoading: false,
+      isAuthenticated: true,
+      hasCompletedOnboarding: true,
+      signOut: async () => {},
+      refreshProfile: async () => true,
+    });
+
+    useStationStore.setState({
+      hasCompletedOnboarding: true,
+      user: {
+        name: 'Completed Student',
+        email: 'completed@growthstation.edu',
+        college: 'VJTI Mumbai',
+        city: 'Mumbai',
+        degree: 'B.Tech / B.E.',
+        targetRole: 'Full Stack Engineer',
+        targetCompanies: ['Google'],
+        skills: [],
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/onboarding']}>
+        <Routes>
+          <Route path="/dashboard" element={<div>Dashboard Home</div>} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <div>Onboarding Wizard</div>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Dashboard Home')).toBeInTheDocument();
+    expect(screen.queryByText('Onboarding Wizard')).not.toBeInTheDocument();
+  });
 });
+
