@@ -39,6 +39,9 @@ export type Database = {
           experience: Json | null
           baseline_assessment: Json | null
           personality_trait: string | null
+          year: string | null
+          target_salary: string | null
+          timeline: string | null
           id: string
           name: string
           score: number | null
@@ -70,6 +73,9 @@ export type Database = {
           experience?: Json | null
           baseline_assessment?: Json | null
           personality_trait?: string | null
+          year?: string | null
+          target_salary?: string | null
+          timeline?: string | null
           id: string
           name?: string
           score?: number | null
@@ -101,8 +107,9 @@ export type Database = {
           experience?: Json | null
           baseline_assessment?: Json | null
           personality_trait?: string | null
-          communication_level?: string | null
-          onboarding_completed?: boolean | null
+          year?: string | null
+          target_salary?: string | null
+          timeline?: string | null
           id?: string
           name?: string
           score?: number | null

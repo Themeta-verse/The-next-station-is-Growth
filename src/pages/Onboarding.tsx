@@ -31,6 +31,7 @@ import {
   Trash2,
   ExternalLink,
   Check,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -450,11 +451,41 @@ export default function Onboarding() {
 
         {/* Card Container */}
         <div className="bg-card rounded-2xl p-6 sm:p-8 border border-border shadow-lg space-y-6">
-          {/* Validation Banner */}
+          {/* Validation & Cloud Sync Error Banner */}
           {stepError && (
-            <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{stepError}</span>
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm space-y-3">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-xs tracking-wide uppercase">
+                    {step === totalSteps - 1 ? 'Cloud Synchronization Notice' : 'Validation Error'}
+                  </p>
+                  <p className="text-xs leading-relaxed text-destructive/90">{stepError}</p>
+                  {step === totalSteps - 1 && (
+                    <p className="text-[11px] text-muted-foreground pt-1">
+                      Your entered onboarding profile data is preserved. Cloud persistence is required before advancing to ensure your learning progress is safely stored.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {step === totalSteps - 1 && (
+                <div className="flex items-center gap-3 pt-1 pl-7">
+                  <button
+                    type="button"
+                    onClick={handleFinish}
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-semibold hover:bg-destructive/90 disabled:opacity-50 transition shadow-sm"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    )}
+                    {isSaving ? 'Retrying Cloud Sync...' : 'Retry Saving to Cloud'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

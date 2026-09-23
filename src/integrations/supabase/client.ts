@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL;
-const rawKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+const rawKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '').trim().replace(/^["']|["']$/g, '');
 
 // Check whether Supabase has a valid-looking configuration
 export const isSupabaseConfigured = (): boolean => {
@@ -46,7 +46,7 @@ export function formatAuthError(error: unknown): string {
     lower.includes('load failed') ||
     lower.includes('authretryablefetcherror')
   ) {
-    return 'Unable to connect to the authentication server. The configured Supabase project appears unreachable or offline. Please check your internet connection or verify the VITE_SUPABASE_URL in your .env file.';
+    return 'Unable to connect to the authentication server. The configured Supabase project appears unreachable or offline. Possible causes include an unstable internet connection, browser privacy extensions/adblockers blocking supabase.co, or server cold-start latency. Please check your internet connection, verify the VITE_SUPABASE_URL in your .env file, or pause any adblocker for this site and try again.';
   }
 
   // Common Supabase auth messages

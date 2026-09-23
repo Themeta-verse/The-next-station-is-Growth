@@ -75,6 +75,22 @@ const AuthContext = createContext<AuthContextType>({
   recordProgress: async () => {},
 });
 
+function isNetworkFetchError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = typeof error === 'object' && error !== null && 'message' in error
+    ? String((error as { message: unknown }).message).toLowerCase()
+    : String(error).toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('fetch failed') ||
+    msg.includes('enotfound') ||
+    msg.includes('networkerror') ||
+    msg.includes('load failed') ||
+    msg.includes('authretryablefetcherror') ||
+    msg.includes('timeout')
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -367,6 +383,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (updates.cs_fundamentals_level !== undefined) payload.cs_fundamentals_level = updates.cs_fundamentals_level;
       if (updates.aptitude_level !== undefined) payload.aptitude_level = updates.aptitude_level;
       if (updates.communication_level !== undefined) payload.communication_level = updates.communication_level;
+      if (updates.year !== undefined) payload.year = updates.year.trim();
+      if (updates.target_salary !== undefined) payload.target_salary = updates.target_salary.trim();
+      if (updates.timeline !== undefined) payload.timeline = updates.timeline;
       if (updates.onboarding_completed !== undefined) payload.onboarding_completed = updates.onboarding_completed;
 
       // 1. Always update Supabase Auth user metadata for zero data loss
@@ -384,44 +403,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Auth user metadata update notice:', authMetaErr);
       }
 
-      // 2. Persist to profiles table with graceful fallback to base columns if PostgreSQL schema lacks extended columns
+      // 2. Persist to profiles table with retry on transient network issues
       let upsertError: unknown = null;
-      const { error: primaryError } = await supabase.from('profiles').upsert(payload);
+      let primaryResult = await supabase.from('profiles').upsert(payload);
 
-      if (primaryError) {
-        const errorMsg = primaryError.message || String(primaryError);
-        const isColumnMissing =
-          primaryError.code === 'PGRST204' ||
-          primaryError.code === '42703' ||
-          errorMsg.toLowerCase().includes('column') ||
-          errorMsg.toLowerCase().includes('schema cache');
-
-        if (isColumnMissing) {
-          // Gracefully fallback to base columns supported by migration 1
-          const basePayload: Record<string, unknown> = {
-            id: user.id,
-          };
-          if (payload.name !== undefined) basePayload.name = payload.name;
-          if (payload.city !== undefined) basePayload.city = payload.city;
-          if (payload.college !== undefined) basePayload.college = payload.college;
-          if (payload.domain !== undefined) basePayload.domain = payload.domain;
-          if (payload.specialization !== undefined) basePayload.specialization = payload.specialization;
-          if (payload.dream_company !== undefined) basePayload.dream_company = payload.dream_company;
-
-          const { error: fallbackError } = await supabase.from('profiles').upsert(basePayload);
-          if (fallbackError) {
-            upsertError = fallbackError;
-          }
-        } else {
-          upsertError = primaryError;
+      // Retry up to 2 times if transient network/fetch failure (handles Supabase container cold start)
+      if (primaryResult.error && isNetworkFetchError(primaryResult.error)) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        primaryResult = await supabase.from('profiles').upsert(payload);
+        if (primaryResult.error && isNetworkFetchError(primaryResult.error)) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          primaryResult = await supabase.from('profiles').upsert(payload);
         }
       }
-
-      if (upsertError) {
-        return { error: new Error(formatAuthError(upsertError)) };
+      if (primaryResult.error) {
+        upsertError = primaryResult.error;
       }
 
-      // Sync Zustand store
+      // Preserve draft updates in local store so entered form data is never lost
       const currentStoreUser = useStationStore.getState().user;
       if (currentStoreUser) {
         useStationStore.getState().login({
@@ -455,6 +454,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      // If cloud persistence failed, do NOT mark onboarding as completed and return the error
+      if (upsertError) {
+        return { error: new Error(formatAuthError(upsertError)) };
+      }
+
+      // Cloud persistence succeeded: mark onboarding complete
       if (updates.onboarding_completed || (updates.city && updates.college)) {
         setHasCompletedOnboarding(true);
       }
