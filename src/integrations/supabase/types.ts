@@ -21,6 +21,24 @@ export type Database = {
           created_at: string | null
           domain: string | null
           dream_company: string | null
+          degree: string | null
+          semester: string | null
+          graduation_year: string | null
+          target_role: string | null
+          target_companies: string[] | null
+          skills: Json | null
+          dsa_level: string | null
+          cs_fundamentals_level: string | null
+          aptitude_level: string | null
+          communication_level: string | null
+          onboarding_completed: boolean | null
+          preparing_for: string | null
+          target_job_type: string | null
+          target_goal: string | null
+          topic_competencies: Json | null
+          experience: Json | null
+          baseline_assessment: Json | null
+          personality_trait: string | null
           id: string
           name: string
           score: number | null
@@ -34,6 +52,24 @@ export type Database = {
           created_at?: string | null
           domain?: string | null
           dream_company?: string | null
+          degree?: string | null
+          semester?: string | null
+          graduation_year?: string | null
+          target_role?: string | null
+          target_companies?: string[] | null
+          skills?: Json | null
+          dsa_level?: string | null
+          cs_fundamentals_level?: string | null
+          aptitude_level?: string | null
+          communication_level?: string | null
+          onboarding_completed?: boolean | null
+          preparing_for?: string | null
+          target_job_type?: string | null
+          target_goal?: string | null
+          topic_competencies?: Json | null
+          experience?: Json | null
+          baseline_assessment?: Json | null
+          personality_trait?: string | null
           id: string
           name?: string
           score?: number | null
@@ -47,6 +83,26 @@ export type Database = {
           created_at?: string | null
           domain?: string | null
           dream_company?: string | null
+          degree?: string | null
+          semester?: string | null
+          graduation_year?: string | null
+          target_role?: string | null
+          target_companies?: string[] | null
+          skills?: Json | null
+          dsa_level?: string | null
+          cs_fundamentals_level?: string | null
+          aptitude_level?: string | null
+          communication_level?: string | null
+          onboarding_completed?: boolean | null
+          preparing_for?: string | null
+          target_job_type?: string | null
+          target_goal?: string | null
+          topic_competencies?: Json | null
+          experience?: Json | null
+          baseline_assessment?: Json | null
+          personality_trait?: string | null
+          communication_level?: string | null
+          onboarding_completed?: boolean | null
           id?: string
           name?: string
           score?: number | null

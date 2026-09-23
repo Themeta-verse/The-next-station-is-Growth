@@ -189,7 +189,7 @@ export default function PlacementScore() {
     ];
   }, [baseQuiz, baseInterview, baseConsistency, simQuizzes, simMockInterview, simStreak, displayedScore, getWeakAreas, isHi, user?.dreamCompany, config.companies, quizHistory.length, mockSessions.length, streak, tasksDone]);
 
-  // Target Company Probability Matrix
+  // Target Company Preparation Alignment Matrix
   const companyProbabilities = useMemo(() => {
     const compData = config.companyData as Record<string, { seats?: number; avgSalary?: string; process?: string }>;
     const comps = config.companies.slice(0, 6);
@@ -197,21 +197,22 @@ export default function PlacementScore() {
     return comps.map((compName) => {
       const info = compData[compName];
       const isDream = user?.dreamCompany?.toLowerCase() === compName.toLowerCase();
-      // Tier-based difficulty coefficient
+      // Target recruitment preparation benchmark score
       const isTopTier = ['Google', 'Microsoft', 'Amazon', 'RBI', 'IAS', 'IPS'].includes(compName);
       const isMidTier = ['Infosys', 'HDFC Bank', 'ICICI', 'State PCS'].includes(compName);
 
-      const reqScore = isTopTier ? 82 : isMidTier ? 65 : 55;
-      const prob = Math.min(96, Math.max(12, Math.round((displayedScore / reqScore) * 78)));
+      const targetBenchmark = isTopTier ? 85 : isMidTier ? 70 : 60;
+      const alignment = Math.min(100, Math.round((displayedScore / targetBenchmark) * 100));
 
       return {
         name: compName,
         isDream,
-        probability: prob,
+        probability: alignment,
+        targetBenchmark,
         salary: info?.avgSalary || '4-8 LPA',
         process: info?.process || 'Online Test → Technical → HR',
-        status: prob >= 75 ? (isHi ? 'उच्च संभावना' : 'High Probability') : prob >= 50 ? (isHi ? 'संभावित' : 'Competitive') : (isHi ? 'तैयारी अपेक्षित' : 'Needs Preparation'),
-        statusColor: prob >= 75 ? 'text-emerald-500 bg-emerald-500/10' : prob >= 50 ? 'text-accent bg-accent/10' : 'text-amber-500 bg-amber-500/10',
+        status: alignment >= 90 ? (isHi ? 'बेंचमार्क पूरा' : 'Benchmark Met') : alignment >= 65 ? (isHi ? 'प्रगति पर' : 'On Track') : (isHi ? 'तैयारी अपेक्षित' : 'Needs Preparation'),
+        statusColor: alignment >= 90 ? 'text-emerald-500 bg-emerald-500/10' : alignment >= 65 ? 'text-accent bg-accent/10' : 'text-amber-500 bg-amber-500/10',
       };
     });
   }, [config.companies, config.companyData, displayedScore, isHi, user?.dreamCompany]);
@@ -450,18 +451,18 @@ export default function PlacementScore() {
         </div>
       </div>
 
-      {/* Target Company Clearing Probability Matrix */}
+      {/* Target Company Preparation Alignment Matrix */}
       <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold flex items-center gap-2">
               <Building className="w-4 h-4 text-accent" />
-              <span>{isHi ? 'कंपनी-विशिष्ट भर्ती संभावना' : 'Target Company Clearance Probability'}</span>
+              <span>{isHi ? 'लक्षित कंपनी तैयारी संरेखण' : 'Target Company Clearance Probability & Preparation Alignment'}</span>
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {isHi
-                ? 'आपके वर्तमान डायग्नोस्टिक स्कोर के आधार पर भर्ती राउंड पास करने की संभावना'
-                : 'Projected likelihood of clearing the selection pipeline based on current score.'}
+                ? 'तैयारी संरेखण आपके वर्तमान साक्ष्य-आधारित स्कोर की तुलना कंपनी के भर्ती पाठ्यक्रम बेंचमार्क से करता है (कोई आधिकारिक गारंटी नहीं)।'
+                : 'Measures your current verified readiness against target recruitment syllabus benchmarks. Not a hiring guarantee.'}
             </p>
           </div>
           <Link

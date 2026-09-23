@@ -31,16 +31,38 @@ export interface WeakArea {
   recommendation: string;
 }
 
+export interface MockInterviewSessionRecord {
+  id: string;
+  date: string;
+  role: string;
+  company: string;
+  type: string;
+  durationMinutes: number;
+  overallScore: number;
+  dimensions: {
+    technicalKnowledge: number;
+    problemSolving: number;
+    communicationClarity: number;
+    answerStructure: number;
+    companyRecruiterFit: number;
+    composureAndPacing: number;
+  };
+  questionCount: number;
+  identifiedWeakPoints: string[];
+}
+
 interface PerformanceState {
   topicPerformance: Record<string, TopicPerformance>;
   quizHistory: QuizSession[];
   companyTestHistory: { company: string; score: number; total: number; date: string; feedback: string[] }[];
   dailyActivity: { date: string; quizzes: number; studyMins: number; score: number }[];
+  mockInterviewHistory: MockInterviewSessionRecord[];
 
   // Actions
   recordQuizAnswer: (topic: string, correct: boolean, timeTaken: number, difficulty: 'basic' | 'medium' | 'hard') => void;
   saveQuizSession: (session: Omit<QuizSession, 'id'>) => void;
   saveCompanyTest: (test: { company: string; score: number; total: number; feedback: string[] }) => void;
+  saveMockInterviewSession: (session: MockInterviewSessionRecord) => void;
   logDailyActivity: (quizzes: number, studyMins: number, score: number) => void;
   getWeakAreas: () => WeakArea[];
   getAdaptiveDifficulty: (topic: string) => 'basic' | 'medium' | 'hard';
@@ -51,17 +73,26 @@ interface PerformanceState {
 
 const STORAGE_KEY = 'station_perf_data';
 
-function loadFromStorage(): Pick<PerformanceState, 'topicPerformance' | 'quizHistory' | 'companyTestHistory' | 'dailyActivity'> {
+function loadFromStorage(): Pick<PerformanceState, 'topicPerformance' | 'quizHistory' | 'companyTestHistory' | 'dailyActivity' | 'mockInterviewHistory'> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        topicPerformance: parsed.topicPerformance || {},
+        quizHistory: parsed.quizHistory || [],
+        companyTestHistory: parsed.companyTestHistory || [],
+        dailyActivity: parsed.dailyActivity || [],
+        mockInterviewHistory: parsed.mockInterviewHistory || [],
+      };
+    }
   } catch {
     /* ignore storage read error */
   }
-  return { topicPerformance: {}, quizHistory: [], companyTestHistory: [], dailyActivity: [] };
+  return { topicPerformance: {}, quizHistory: [], companyTestHistory: [], dailyActivity: [], mockInterviewHistory: [] };
 }
 
-function saveToStorage(data: Pick<PerformanceState, 'topicPerformance' | 'quizHistory' | 'companyTestHistory' | 'dailyActivity'>) {
+function saveToStorage(data: Pick<PerformanceState, 'topicPerformance' | 'quizHistory' | 'companyTestHistory' | 'dailyActivity' | 'mockInterviewHistory'>) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
@@ -111,6 +142,15 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => {
         const entry = { ...test, date: new Date().toISOString() };
         const newHistory = [...state.companyTestHistory, entry].slice(-30);
         const newState = { companyTestHistory: newHistory };
+        saveToStorage({ ...state, ...newState });
+        return newState;
+      });
+    },
+
+    saveMockInterviewSession: (session) => {
+      set(state => {
+        const newHistory = [session, ...(state.mockInterviewHistory || [])].slice(0, 30);
+        const newState = { mockInterviewHistory: newHistory };
         saveToStorage({ ...state, ...newState });
         return newState;
       });
@@ -190,7 +230,10 @@ export const usePerformanceStore = create<PerformanceState>((set, get) => {
 
       // Interview performance
       let interviewPerf = 25;
-      if (mockSessions.length > 0) {
+      const { mockInterviewHistory } = get();
+      if (mockInterviewHistory && mockInterviewHistory.length > 0) {
+        interviewPerf = Math.round(mockInterviewHistory.reduce((s, m) => s + m.overallScore, 0) / mockInterviewHistory.length);
+      } else if (mockSessions.length > 0) {
         interviewPerf = Math.round(mockSessions.reduce((s: number, m: { total?: number }) => s + (m.total || 0), 0) / mockSessions.length);
       }
 

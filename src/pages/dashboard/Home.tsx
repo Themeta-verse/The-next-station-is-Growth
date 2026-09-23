@@ -8,6 +8,10 @@ import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from
 import { streamChat } from '@/lib/ai';
 import { supabase } from '@/integrations/supabase/client';
 import heroImg from '@/assets/hero-study.jpg';
+import JobReadinessCalculator from '@/components/readiness/JobReadinessCalculator';
+import StudentReadinessSnapshot from '@/components/dashboard/StudentReadinessSnapshot';
+import TodaysFocus from '@/components/dashboard/TodaysFocus';
+import StudentSkillProfile from '@/components/dashboard/StudentSkillProfile';
 
 export default function Home() {
   const { domain, user, rank, totalStudents, streak, tasksDone, weeklyGoalProgress, boostRank, completeTask, quizScores, addWeakPoint, removeWeakPoint, language } = useStationStore();
@@ -22,13 +26,6 @@ export default function Home() {
   const [quickQuizDone, setQuickQuizDone] = useState(false);
   const [quizWeakTopics, setQuizWeakTopics] = useState<string[]>([]);
   const pct = Math.round(((totalStudents - rank) / totalStudents) * 100);
-
-  // Company probability — before & after
-  const [companyInput, setCompanyInput] = useState(user?.dreamCompany || '');
-  const [probCompany, setProbCompany] = useState('');
-  const [probBefore, setProbBefore] = useState<number | null>(null);
-  const [probAfter, setProbAfter] = useState<number | null>(null);
-  const [probLoading, setProbLoading] = useState(false);
 
   // Analyze weak points
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -171,33 +168,6 @@ export default function Home() {
     }));
   };
 
-  const generateProbability = () => {
-    if (!companyInput.trim()) return;
-    setProbLoading(true);
-    setProbCompany(companyInput.trim());
-
-    const knownCompany = (config.companyData as Record<string, any>)?.[companyInput.trim()];
-    const baseIQ = user?.personalityScore?.iq || 30;
-    const baseEQ = user?.personalityScore?.eq || 25;
-    const weakCount = user?.weakPoints?.length || 0;
-
-    if (knownCompany) {
-      const difficulty = knownCompany.seats < 500 ? 0.4 : knownCompany.seats < 2000 ? 0.6 : 0.8;
-      const before = Math.min(92, Math.round(10 + baseIQ * 0.2 * difficulty + baseEQ * 0.1 * difficulty - weakCount * 4));
-      const after = Math.min(92, Math.round(10 + baseIQ * 0.3 * difficulty + baseEQ * 0.2 * difficulty + tasksDone * 0.3 - weakCount * 2));
-      setProbBefore(Math.max(5, before));
-      setProbAfter(Math.max(before + 5, Math.max(5, after)));
-      setProbLoading(false);
-    } else {
-      setTimeout(() => {
-        const before = Math.min(85, Math.round(8 + baseIQ * 0.15 - weakCount * 3));
-        const after = Math.min(85, Math.round(12 + baseIQ * 0.25 + baseEQ * 0.15 + tasksDone * 0.2 - weakCount * 2));
-        setProbBefore(Math.max(5, before));
-        setProbAfter(Math.max(before + 5, Math.max(5, after)));
-        setProbLoading(false);
-      }, 800);
-    }
-  };
 
   const checkCloseness = () => {
     const totalDone = todoChecked.filter(Boolean).length + customTasks.filter(t => t.done).length;
@@ -262,13 +232,7 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
     checkCloseness();
   };
 
-  const knownCompanyInfo = probCompany ? (config.companyData as Record<string, any>)?.[probCompany] : null;
 
-  // Pie chart colors - vivid, distinct
-  const PIE_BEFORE_FILL = '#EF4444'; // red
-  const PIE_BEFORE_BG = '#374151'; // dark gray
-  const PIE_AFTER_FILL = '#22C55E'; // green
-  const PIE_AFTER_BG = '#374151'; // dark gray
 
   return (
     <div className="max-w-5xl space-y-5 animate-fade-in">
@@ -281,11 +245,11 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
             <p className="text-sm text-primary-foreground/70 mt-1 max-w-md">{isHi ? config.affirmationHi : config.affirmation}</p>
           </div>
           <div className="flex flex-col gap-2 items-end">
-            <button onClick={() => navigate('/dashboard/profile')}
+            <button onClick={() => navigate('/dashboard/profile?open=personality', { state: { openPersonality: true } })}
               className="px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-sm text-primary-foreground text-xs font-medium hover:bg-white/30 transition-all flex items-center gap-1.5">
               <Brain className="w-3.5 h-3.5" /> {isHi ? 'व्यक्तित्व जांच' : 'Personality Check'}
             </button>
-            <button onClick={() => navigate('/dashboard/profile')}
+            <button onClick={() => navigate('/dashboard/readiness')}
               className="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm text-primary-foreground text-xs font-medium hover:bg-white/20 transition-all flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5" /> {isHi ? 'रेडीनेस स्कोर' : 'Readiness Score'}
             </button>
@@ -308,76 +272,17 @@ Do this for each weak point. Be specific to Indian placements. Keep it practical
         ))}
       </div>
 
-      {/* Job Probability — Before & After */}
-      <div className="bg-card rounded-2xl border border-border p-5">
-        <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
-          <PieChart className="w-4 h-4 text-accent" />
-          {isHi ? 'नौकरी पाने की संभावना' : 'Job Probability Calculator'}
-        </h3>
-        <div className="flex gap-2 mb-4">
-          <input value={companyInput} onChange={(e) => setCompanyInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && generateProbability()}
-            placeholder={isHi ? 'कंपनी का नाम (जैसे TCS, Google)' : 'Enter company name (e.g. TCS, Google)'}
-            className="flex-1 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
-          <button onClick={generateProbability} disabled={!companyInput.trim() || probLoading}
-            className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:scale-105 transition-transform disabled:opacity-40 flex items-center gap-2">
-            {probLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            {isHi ? 'जांचें' : 'Check'}
-          </button>
-        </div>
+      {/* Today's Dynamic Focus */}
+      <TodaysFocus />
 
-        {probBefore !== null && probAfter !== null && (
-          <div className="animate-fade-in">
-            <div className="grid grid-cols-2 gap-6">
-              {/* Before */}
-              <div className="text-center">
-                <p className="text-xs font-semibold mb-2 uppercase tracking-wide text-destructive">{isHi ? 'तैयारी से पहले' : '🔴 Before Prep'}</p>
-                <div className="w-32 h-32 mx-auto relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie data={[{ name: 'Chance', value: probBefore }, { name: 'Gap', value: 100 - probBefore }]} cx="50%" cy="50%" innerRadius={38} outerRadius={55} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
-                        <Cell fill={PIE_BEFORE_FILL} />
-                        <Cell fill={PIE_BEFORE_BG} />
-                      </Pie>
-                    </RechartsPie>
-                  </ResponsiveContainer>
-                  <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-destructive">{probBefore}%</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">{isHi ? 'वर्तमान संभावना' : 'Current chance'}</p>
-              </div>
-              {/* After */}
-              <div className="text-center">
-                <p className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: PIE_AFTER_FILL }}>{isHi ? 'तैयारी के बाद' : '🟢 After Prep'}</p>
-                <div className="w-32 h-32 mx-auto relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie data={[{ name: 'Chance', value: probAfter }, { name: 'Gap', value: 100 - probAfter }]} cx="50%" cy="50%" innerRadius={38} outerRadius={55} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
-                        <Cell fill={PIE_AFTER_FILL} />
-                        <Cell fill={PIE_AFTER_BG} />
-                      </Pie>
-                    </RechartsPie>
-                  </ResponsiveContainer>
-                  <span className="absolute inset-0 flex items-center justify-center text-xl font-bold" style={{ color: PIE_AFTER_FILL }}>{probAfter}%</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">{isHi ? 'तैयारी के बाद' : 'After preparation'}</p>
-              </div>
-            </div>
-            <div className="mt-4 p-3 rounded-xl bg-accent/5 border border-accent/20 text-center">
-              <p className="text-sm font-semibold">📈 +{probAfter - probBefore}% {isHi ? 'सुधार संभव' : 'improvement possible'}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {isHi ? `${probCompany} में चयन की संभावना बढ़ाने के लिए अभ्यास जारी रखें` : `Keep preparing to maximize your chances at ${probCompany}`}
-              </p>
-            </div>
-            {knownCompanyInfo && (
-              <div className="mt-3 p-3 rounded-xl bg-muted/50 text-xs text-muted-foreground grid grid-cols-2 gap-2">
-                <p><span className="font-medium text-foreground">{isHi ? 'सीटें' : 'Seats'}:</span> {knownCompanyInfo.seats}</p>
-                <p><span className="font-medium text-foreground">{isHi ? 'वेतन' : 'Salary'}:</span> {knownCompanyInfo.avgSalary}</p>
-                <p className="col-span-2"><span className="font-medium text-foreground">{isHi ? 'प्रक्रिया' : 'Process'}:</span> {knownCompanyInfo.process}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Unified Student Readiness Cockpit */}
+      <StudentReadinessSnapshot />
+
+      {/* Verified Competency & Skill Profile */}
+      <StudentSkillProfile />
+
+      {/* Evidence-Based Job Readiness Calculator */}
+      <JobReadinessCalculator />
 
       {/* Quick Quiz */}
       <div className="bg-card rounded-2xl border border-border p-5">

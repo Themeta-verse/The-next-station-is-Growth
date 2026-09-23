@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useStationStore, domainConfig, type ThemeOption } from '@/store/useStationStore';
 import { usePerformanceStore } from '@/store/usePerformanceStore';
 import { useAuth } from '@/context/AuthContext';
@@ -41,8 +41,9 @@ const personalityQuestions = [
 ];
 
 export default function Profile() {
-  const { user: authUser } = useAuth();
-  const { theme, setTheme, user, rank, totalStudents, streak, tasksDone, language, domain } = useStationStore();
+  const location = useLocation();
+  const { user: authUser, updateProfile } = useAuth();
+  const { theme, setTheme, user, rank, totalStudents, streak, tasksDone, language, domain, setPersonalityTrait } = useStationStore();
   const { getPlacementScore, quizHistory, topicPerformance, dailyActivity, companyTestHistory } = usePerformanceStore();
   const config = domainConfig[domain];
   const isHi = language === 'hi';
@@ -51,7 +52,18 @@ export default function Profile() {
   const [personalityStep, setPersonalityStep] = useState(0);
   const [personalityAnswers, setPersonalityAnswers] = useState<number[]>(Array(5).fill(-1));
   const [personalityDone, setPersonalityDone] = useState(false);
-  const [personalityResult, setPersonalityResult] = useState('');
+  const [personalityResult, setPersonalityResult] = useState(user?.personalityTrait || '');
+
+  // Auto-open personality check if requested via query or location state
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldOpen = params.get('open') === 'personality' || (location.state as { openPersonality?: boolean })?.openPersonality;
+    if (shouldOpen) {
+      setShowPersonality(true);
+      setPersonalityStep(0);
+      setPersonalityDone(false);
+    }
+  }, [location.search, location.state]);
 
   // Placement Score
   const placementData = useMemo(() => getPlacementScore(streak, tasksDone), [getPlacementScore, streak, tasksDone]);
@@ -122,6 +134,7 @@ export default function Profile() {
     }));
   }, [topicPerformance]);
   const COLORS = ['hsl(var(--accent))', 'hsl(var(--primary))', 'hsl(140, 45%, 40%)', 'hsl(270, 40%, 50%)', 'hsl(25, 60%, 45%)'];
+  const PIE_COLORS = COLORS;
 
   // Personality handler
   const handlePersonalityAnswer = (optIndex: number) => {
@@ -135,6 +148,10 @@ export default function Profile() {
       const traits = ['Strategic Thinker', 'Action-Oriented Learner', 'Supportive Collaborator', 'Resilient Under Pressure', 'Creative Problem Solver'];
       const res = traits[optIndex] || 'Balanced Professional';
       setPersonalityResult(res);
+      setPersonalityTrait(res);
+      if (authUser?.id) {
+        updateProfile({ personality_trait: res });
+      }
     }
   };
 
@@ -149,6 +166,8 @@ export default function Profile() {
     return tips;
   }, [quizAccuracy, interviewPerf, consistency, isHi]);
 
+  const activeTrait = user?.personalityTrait || personalityResult;
+
   return (
     <div className="max-w-5xl space-y-5 animate-fade-in">
       {/* Header + Personality Button */}
@@ -162,13 +181,18 @@ export default function Profile() {
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent/15 text-accent capitalize border border-accent/25">
               {domainConfig[domain].label}
             </span>
+            {activeTrait && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/25 flex items-center gap-1">
+                <Brain className="w-3 h-3" />
+                {activeTrait}
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
             <Mail className="w-3.5 h-3.5 shrink-0" /> {authUser?.email || 'Authenticated User'}
           </p>
           <p className="text-sm text-muted-foreground">{user?.college || 'College not set'} · {user?.specialization || 'Branch not set'}</p>
           <p className="text-xs text-accent mt-1">Dream: {user?.dreamCompany || 'Not set'} · Timeline: {user?.timeline || '6'} months</p>
-          {personalityResult && <p className="text-[10px] text-muted-foreground mt-1">{personalityResult}</p>}
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <Link
@@ -301,7 +325,7 @@ export default function Profile() {
             ))}
             {/* Dynamic message */}
             <div className="p-3 rounded-xl bg-accent/5 border border-accent/20 mt-2">
-              {feedback.map((f, i) => (
+              {prepTips.map((f, i) => (
                 <p key={i} className="text-xs text-muted-foreground flex items-center gap-1.5 py-0.5">
                   <Zap className="w-3 h-3 text-accent flex-shrink-0" /> {f}
                 </p>

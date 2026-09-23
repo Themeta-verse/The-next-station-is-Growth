@@ -3,16 +3,17 @@ import { useStationStore, domainConfig } from '@/store/useStationStore';
 import { usePerformanceStore } from '@/store/usePerformanceStore';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { AlertTriangle, TrendingDown, Lightbulb, Brain, Target, Loader2, Sparkles, BookOpen, ArrowRight, Zap, Clock, CheckCircle } from 'lucide-react';
-import { streamChat } from '@/lib/ai';
+import VisualRoadmap, { type RoadmapMilestone } from '@/components/roadmap/VisualRoadmap';
 
 export default function WeaknessDetector() {
   const { domain, user, language } = useStationStore();
   const { getWeakAreas, getRecommendations, topicPerformance, quizHistory } = usePerformanceStore();
   const config = domainConfig[domain];
   const isHi = language === 'hi';
-  const [aiPlan, setAiPlan] = useState('');
   const [planLoading, setPlanLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'weakness' | 'recommend'>('weakness');
+  const [generatedMilestones, setGeneratedMilestones] = useState<RoadmapMilestone[] | null>(null);
+  const [completedMilestones, setCompletedMilestones] = useState<Set<string>>(new Set(['diag-milestone-0']));
 
   // Real student data from performance store
   const weakAreas = useMemo(() => {
@@ -45,19 +46,128 @@ export default function WeaknessDetector() {
   const levelBg = (l: string) => l === 'high' ? 'bg-destructive/10' : l === 'medium' ? 'bg-accent/10' : 'bg-green-500/10';
   const barColor = (accuracy: number) => accuracy < 40 ? 'hsl(0, 65%, 51%)' : accuracy < 70 ? 'hsl(var(--accent))' : 'hsl(140, 45%, 40%)';
 
-  const generatePlan = async () => {
+  const generatePlan = () => {
     setPlanLoading(true);
-    setAiPlan('');
-    const weakTopics = weakAreas.filter(w => w.severity !== 'low').map(w => `${w.topic} (${w.severity} weakness, ${w.accuracy}% accuracy, avg ${w.avgTime}s/question)`).join(', ');
-    let text = '';
-    await streamChat({
-      messages: [{ role: 'user', content: `I'm a ${config.label} student. My weak areas based on actual quiz performance: ${weakTopics || 'no data yet'}. Target: ${user?.dreamCompany || config.companies[0]}. Create a 2-week roadmap with daily milestones. Format as a clear step-by-step roadmap with Week 1 and Week 2 breakdown. Include specific resources and practice targets. Make it actionable and visual with clear progress markers.` }],
-      mode: 'interview-prep',
-      context: { domain },
-      onDelta: (d) => { text += d; setAiPlan(text); },
-      onDone: () => setPlanLoading(false),
-      onError: () => { setAiPlan(isHi ? 'योजना जनरेट नहीं हो सकी।' : 'Could not generate plan. Try again later.'); setPlanLoading(false); },
-    });
+    setTimeout(() => {
+      const targetCompany = user?.dreamCompany || config.companies[0] || 'Target Recruiter';
+      const weakTopicNames = weakAreas.filter(w => w.severity !== 'low').map(w => w.topic);
+      const fallbackTopics = config.weeklyTopics.slice(0, 3);
+      const primaryWeak = weakTopicNames[0] || fallbackTopics[0] || 'Core Domain Principles';
+      const secondaryWeak = weakTopicNames[1] || fallbackTopics[1] || 'Applied Problem Solving';
+
+      const milestones: RoadmapMilestone[] = [
+        {
+          id: 'diag-milestone-0',
+          stepNumber: 1,
+          stationName: 'Station 1: BASELINE DIAGNOSTIC',
+          title: 'Diagnostic Baseline & Gap Detection',
+          category: 'Foundation',
+          estimatedHours: '2 hours',
+          description: 'Identify primary conceptual misconceptions and benchmark initial domain competency.',
+          prerequisites: ['Diagnostic Assessment'],
+          tasks: [
+            { id: 't0-1', text: 'Complete diagnostic quiz on STATION', completed: true },
+            { id: 't0-2', text: 'Review missed question explanations', completed: true },
+          ],
+          resources: [
+            { title: 'Diagnostic Analysis Guide', type: 'article' },
+          ],
+          keyTopics: [
+            { name: 'Baseline Score', status: 'mastered' },
+            { name: 'Gap Detection', status: 'mastered' },
+          ],
+        },
+        {
+          id: 'diag-milestone-1',
+          stepNumber: 2,
+          stationName: `Station 2: RECONSTRUCT ${primaryWeak.toUpperCase()}`,
+          title: `Remediate Primary Weakness: ${primaryWeak}`,
+          category: 'Core Skills',
+          estimatedHours: '5 hours',
+          description: `Deep conceptual rebuild for ${primaryWeak}. Focus on invariants, edge cases, and misconception elimination.`,
+          prerequisites: ['Baseline Diagnostic'],
+          tasks: [
+            { id: 't1-1', text: `Study ${primaryWeak} primary authoritative documentation`, completed: false },
+            { id: 't1-2', text: `Solve 5 fundamental drill problems on ${primaryWeak}`, completed: false },
+            { id: 't1-3', text: 'Score ≥ 75% on verification checkpoint quiz', completed: false },
+          ],
+          resources: [
+            { title: `${primaryWeak} Authoritative Guide`, type: 'article' },
+            { title: `${primaryWeak} Concept Lecture`, type: 'video' },
+          ],
+          keyTopics: [
+            { name: primaryWeak, status: 'weak' },
+            { name: 'Boundary Conditions', status: 'pending' },
+          ],
+        },
+        {
+          id: 'diag-milestone-2',
+          stepNumber: 3,
+          stationName: `Station 3: PRACTICE ${secondaryWeak.toUpperCase()}`,
+          title: `Reinforce Secondary Gap: ${secondaryWeak}`,
+          category: 'Core Skills',
+          estimatedHours: '6 hours',
+          description: `Targeted timed problem solving for ${secondaryWeak} to build retrieval speed under exam pressure.`,
+          prerequisites: [`Remediate ${primaryWeak}`],
+          tasks: [
+            { id: 't2-1', text: `Review ${secondaryWeak} common patterns & traps`, completed: false },
+            { id: 't2-2', text: 'Complete 25 timed practice problems', completed: false },
+          ],
+          resources: [
+            { title: `${secondaryWeak} Problem Set`, type: 'article' },
+          ],
+          keyTopics: [
+            { name: secondaryWeak, status: 'weak' },
+            { name: 'Timed Speed', status: 'pending' },
+          ],
+        },
+        {
+          id: 'diag-milestone-3',
+          stepNumber: 4,
+          stationName: `Station 4: ${targetCompany.toUpperCase()} SIMULATION`,
+          title: `${targetCompany} Screening Round Preparation`,
+          category: 'Interview Prep',
+          estimatedHours: '4 hours',
+          description: `Align problem-solving patterns with verified ${targetCompany} online assessment questions.`,
+          prerequisites: ['Core Skills Rebuilt'],
+          tasks: [
+            { id: 't3-1', text: `Review ${targetCompany} round-by-round hiring requirements`, completed: false },
+            { id: 't3-2', text: `Take full-length ${targetCompany} practice test on STATION`, completed: false },
+          ],
+          resources: [
+            { title: `${targetCompany} Interview Prep Guide`, type: 'article' },
+          ],
+          keyTopics: [
+            { name: `${targetCompany} Patterns`, status: 'pending' },
+            { name: 'Online Assessment', status: 'pending' },
+          ],
+        },
+        {
+          id: 'diag-milestone-4',
+          stepNumber: 5,
+          stationName: 'Station 5: INTERVIEW READY',
+          title: 'Live AI Video Mock Interview Clearance',
+          category: 'Final Clearance',
+          estimatedHours: '3 hours',
+          description: 'Simulate live company interview with real-time video, speech clarity, and STAR articulation checks.',
+          prerequisites: [`${targetCompany} Screening Checkpoint`],
+          tasks: [
+            { id: 't4-1', text: 'Rehearse 1 full AI Video Mock Interview Session', completed: false },
+            { id: 't4-2', text: 'Achieve ≥ 75% overall communication and technical score', completed: false },
+          ],
+          resources: [
+            { title: 'STAR Behavioral Framework', type: 'article' },
+          ],
+          keyTopics: [
+            { name: 'Technical Articulation', status: 'pending' },
+            { name: 'Placement Clearance', status: 'pending' },
+          ],
+        },
+      ];
+
+      setGeneratedMilestones(milestones);
+      setPlanLoading(false);
+    }, 600);
   };
 
   return (
@@ -239,23 +349,56 @@ export default function WeaknessDetector() {
         </>
       )}
 
-      {/* AI Roadmap Plan */}
+      {/* Visual Targeted Roadmap Plan */}
       {hasData && (
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-accent" />
-              {isHi ? 'AI सुधार रोडमैप' : 'AI Improvement Roadmap'}
-            </h3>
-            <button onClick={generatePlan} disabled={planLoading}
-              className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-semibold hover-scale disabled:opacity-40 flex items-center gap-2">
-              {planLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              {isHi ? 'रोडमैप बनाएं' : 'Generate Roadmap'}
+        <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+            <div>
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-accent" />
+                {isHi ? 'डायग्नोस्टिक सुधार रोडमैप' : 'Diagnostic Recovery Roadmap'}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isHi
+                  ? 'आपके वास्तविक क्विज़ प्रदर्शन पर आधारित दृश्य मील का पत्थर रोडमैप'
+                  : 'Highly visual progression roadmap targeting your exact assessed weaknesses and target company.'}
+              </p>
+            </div>
+            <button
+              onClick={generatePlan}
+              disabled={planLoading}
+              className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-semibold hover-scale disabled:opacity-40 flex items-center gap-2 self-start sm:self-auto shrink-0 shadow-sm"
+            >
+              {planLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {isHi ? 'रोडमैप बनाएं' : 'Generate Visual Roadmap'}
             </button>
           </div>
-          {aiPlan && (
-            <div className="prose prose-sm max-w-none text-sm whitespace-pre-wrap bg-muted/30 rounded-xl p-4 leading-relaxed">
-              {aiPlan}
+
+          {planLoading && (
+            <div className="p-8 text-center space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-accent mx-auto" />
+              <p className="text-xs font-semibold text-foreground">
+                Analyzing your diagnostic performance and structuring optimal milestone sequence...
+              </p>
+            </div>
+          )}
+
+          {generatedMilestones && !planLoading && (
+            <div className="space-y-4 pt-2">
+              <VisualRoadmap
+                milestones={generatedMilestones}
+                completedMilestoneIds={completedMilestones}
+                onToggleMilestone={(id) => {
+                  setCompletedMilestones((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  });
+                }}
+                targetRole={user?.targetRole || 'Software Engineer'}
+                targetCompany={user?.dreamCompany || config.companies[0]}
+              />
             </div>
           )}
         </div>

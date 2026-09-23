@@ -4,18 +4,86 @@ export type Domain = 'engineering' | 'commerce' | 'arts';
 export type ThemeOption = 'engineering' | 'commerce' | 'arts' | 'violet' | 'forest' | 'mocha';
 export type Language = 'en' | 'hi';
 
-interface UserProfile {
+export type SkillProficiency = 'Beginner' | 'Intermediate' | 'Advanced';
+export type SkillCategory = 'language' | 'framework' | 'database' | 'tool' | 'core';
+export type ReadinessLevel = 'Beginner' | 'Intermediate' | 'Advanced';
+
+export interface StudentSkill {
+  name: string;
+  category: SkillCategory;
+  proficiency: SkillProficiency;
+  selfReportedLevel?: SkillProficiency;
+  assessedLevel?: SkillProficiency | 'Unassessed';
+  confidence?: number; // 0-100
+  score?: number; // 0-100
+  evidence?: string[];
+  lastUpdated?: string;
+  weakPoints?: string[];
+  relatedLearningResources?: string[];
+}
+
+export interface StudentProject {
+  title: string;
+  description: string;
+  techStack: string[];
+  link?: string;
+}
+
+export interface StudentExperience {
+  projects?: StudentProject[];
+  internships?: Array<{ company: string; role: string; duration: string }>;
+  certifications?: string[];
+  hackathons?: string[];
+  githubUrl?: string;
+  previousInterviewExperience?: string;
+}
+
+export interface BaselineAssessmentResult {
+  completed: boolean;
+  overallScore: number;
+  dsaScore: number;
+  csFundamentalsScore: number;
+  programmingScore: number;
+  strengths: string[];
+  weaknesses: string[];
+  date: string;
+}
+
+export interface TopicCompetency {
+  selfReported: ReadinessLevel;
+  assessed?: ReadinessLevel;
+  score?: number;
+}
+
+export interface UserProfile {
   name: string;
   state: string;
   city: string;
   college: string;
   domain: Domain;
+  degree?: string;
   specialization: string;
   year: string;
+  semester?: string;
+  graduationYear?: string;
+  targetRole?: string;
+  targetCompanies?: string[];
   dreamCompany: string;
   dreamJob: string;
   targetSalary: string;
   timeline: string;
+  preparingFor?: string;
+  targetJobType?: string;
+  targetGoal?: string;
+  experience?: StudentExperience;
+  baselineAssessment?: BaselineAssessmentResult;
+  topicCompetencies?: Record<string, TopicCompetency>;
+  personalityTrait?: string;
+  skills?: StudentSkill[];
+  dsaLevel?: ReadinessLevel;
+  csFundamentalsLevel?: ReadinessLevel;
+  aptitudeLevel?: ReadinessLevel;
+  communicationLevel?: ReadinessLevel;
   personalityScore: { iq: number; eq: number; rq: number };
   weakPoints: string[];
 }
@@ -47,6 +115,17 @@ interface StationState {
   setQuizScores: (s: { iq: number; eq: number; rq: number }) => void;
   addWeakPoint: (point: string) => void;
   removeWeakPoint: (point: string) => void;
+  updateUserSkills: (skills: StudentSkill[]) => void;
+  updateSkillEvidence: (skillName: string, assessedLevel: SkillProficiency, score: number, evidenceTag: string) => void;
+  setBaselineAssessment: (result: BaselineAssessmentResult) => void;
+  setPersonalityTrait: (trait: string) => void;
+  setTopicCompetency: (topic: string, competency: TopicCompetency) => void;
+  updateUserReadinessLevels: (levels: {
+    dsaLevel?: ReadinessLevel;
+    csFundamentalsLevel?: ReadinessLevel;
+    aptitudeLevel?: ReadinessLevel;
+    communicationLevel?: ReadinessLevel;
+  }) => void;
 }
 
 export const useStationStore = create<StationState>((set) => ({
@@ -103,6 +182,95 @@ export const useStationStore = create<StationState>((set) => ({
   removeWeakPoint: (point) => set((s) => {
     if (!s.user) return {};
     return { user: { ...s.user, weakPoints: (s.user.weakPoints || []).filter(w => w !== point) } };
+  }),
+  updateUserSkills: (skills) => set((s) => {
+    if (!s.user) return {};
+    return { user: { ...s.user, skills } };
+  }),
+  updateSkillEvidence: (skillName, assessedLevel, score, evidenceTag) => set((s) => {
+    if (!s.user) return {};
+    const existingSkills = [...(s.user.skills || [])];
+    const idx = existingSkills.findIndex((sk) => sk.name.toLowerCase() === skillName.toLowerCase());
+    
+    if (idx >= 0) {
+      const current = existingSkills[idx];
+      const evidence = [...(current.evidence || [])];
+      if (!evidence.includes(evidenceTag)) evidence.push(evidenceTag);
+      existingSkills[idx] = {
+        ...current,
+        assessedLevel,
+        score,
+        confidence: 'high',
+        evidence,
+      };
+    } else {
+      existingSkills.push({
+        name: skillName,
+        selfReportedLevel: assessedLevel,
+        assessedLevel,
+        score,
+        confidence: 'medium',
+        evidence: [evidenceTag],
+      });
+    }
+
+    const weakPoints = [...(s.user.weakPoints || [])];
+    if (score < 60 && !weakPoints.includes(skillName)) {
+      weakPoints.push(skillName);
+    } else if (score >= 75 && weakPoints.includes(skillName)) {
+      const wIdx = weakPoints.indexOf(skillName);
+      if (wIdx >= 0) weakPoints.splice(wIdx, 1);
+    }
+
+    return {
+      user: {
+        ...s.user,
+        skills: existingSkills,
+        weakPoints,
+      },
+    };
+  }),
+  setBaselineAssessment: (result) => set((s) => {
+    if (!s.user) return {};
+    return {
+      user: {
+        ...s.user,
+        baselineAssessment: result,
+      },
+    };
+  }),
+  setPersonalityTrait: (trait) => set((s) => {
+    if (!s.user) return {};
+    return {
+      user: {
+        ...s.user,
+        personalityTrait: trait,
+      },
+    };
+  }),
+  setTopicCompetency: (topic, competency) => set((s) => {
+    if (!s.user) return {};
+    return {
+      user: {
+        ...s.user,
+        topicCompetencies: {
+          ...(s.user.topicCompetencies || {}),
+          [topic]: competency,
+        },
+      },
+    };
+  }),
+  updateUserReadinessLevels: (levels) => set((s) => {
+    if (!s.user) return {};
+    return {
+      user: {
+        ...s.user,
+        ...(levels.dsaLevel !== undefined ? { dsaLevel: levels.dsaLevel } : {}),
+        ...(levels.csFundamentalsLevel !== undefined ? { csFundamentalsLevel: levels.csFundamentalsLevel } : {}),
+        ...(levels.aptitudeLevel !== undefined ? { aptitudeLevel: levels.aptitudeLevel } : {}),
+        ...(levels.communicationLevel !== undefined ? { communicationLevel: levels.communicationLevel } : {}),
+      },
+    };
   }),
 }));
 

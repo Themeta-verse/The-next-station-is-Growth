@@ -197,8 +197,8 @@ Be specific to Indian ${config.label} placements/exams. Be encouraging but hones
       const info = (config.companyData as Record<string, any>)?.[c.name];
       const seats = info?.seats || 500;
       const applicants = seats < 500 ? Math.round(seats * 120) : seats < 2000 ? Math.round(seats * 40) : Math.round(seats * 15);
-      const myProbability = Math.min(95, Math.round((c.match / 100) * (seats / applicants) * 1000));
-      return { ...c, applicants, myProbability };
+      const skillMatch = Math.min(100, Math.max(25, c.match));
+      return { ...c, applicants, skillMatch };
     });
 
     return (
@@ -210,7 +210,10 @@ Be specific to Indian ${config.label} placements/exams. Be encouraging but hones
 
         {/* Competition Analysis */}
         <div className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-accent" /> {isHi ? 'प्रतिस्पर्धा विश्लेषण' : 'Competition Analysis'}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4 text-accent" /> {isHi ? 'प्रतिस्पर्धा विश्लेषण' : 'Competition & Skill Match Analysis'}</h3>
+            <span className="text-[10px] text-muted-foreground italic">Based on verified syllabus profile</span>
+          </div>
           <div className="space-y-3">
             {applicantData.map((c) => (
               <div key={c.name} className="flex items-center gap-4 p-3 rounded-xl bg-muted/30 border border-border hover:border-accent/30 transition-all cursor-pointer" onClick={() => startCompanyPrep(c.name)}>
@@ -225,12 +228,12 @@ Be specific to Indian ${config.label} placements/exams. Be encouraging but hones
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-accent">{c.myProbability}%</p>
-                  <p className="text-[10px] text-muted-foreground">{isHi ? 'आपकी संभावना' : 'Your probability'}</p>
+                  <p className="text-lg font-bold text-accent">{c.skillMatch}%</p>
+                  <p className="text-[10px] text-muted-foreground">{isHi ? 'कौशल मैच' : 'Skill Match'}</p>
                 </div>
                 <div className="w-16">
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-accent rounded-full" style={{ width: `${c.myProbability}%` }} />
+                    <div className="h-full bg-accent rounded-full" style={{ width: `${c.skillMatch}%` }} />
                   </div>
                 </div>
               </div>

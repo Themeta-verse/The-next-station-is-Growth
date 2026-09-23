@@ -148,24 +148,37 @@ async function simulateStream(
   onDone: () => void
 ): Promise<void> {
   const words = text.split(' ');
-  for (let i = 0; i < words.length; i++) {
-    const chunk = (i === 0 ? '' : ' ') + words[i];
+  const isTest = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+  const delay = isTest ? 1 : 10;
+  for (let i = 0; i < words.length; i += 2) {
+    const chunk = (i === 0 ? '' : ' ') + words.slice(i, i + 2).join(' ');
     onDelta(chunk);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    if (!isTest) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
   onDone();
 }
 
 export async function streamChat({ messages, mode, context, onDelta, onDone, onError }: StreamOptions) {
   try {
-    const resp = await fetch(CHAT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ messages, mode, context }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
+
+    let resp: Response;
+    try {
+      resp = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages, mode, context }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (resp.status === 429 || resp.status === 402) {
       const fallback = generateFallbackResponse(mode, context, messages);

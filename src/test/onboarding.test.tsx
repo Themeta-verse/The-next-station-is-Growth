@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { User, Session } from '@supabase/supabase-js';
 import Onboarding from '@/pages/Onboarding';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useStationStore } from '@/store/useStationStore';
 import { useLeaderboardStore } from '@/store/useLeaderboardStore';
 import * as AuthContextModule from '@/context/AuthContext';
@@ -155,5 +156,297 @@ describe('Onboarding & Progress Synchronization (CHUNK 2)', () => {
         expect(screen.getByText(/Academic & Domain Track/i)).toBeInTheDocument();
       });
     });
+
+    it('A: Completed onboarding + "Take Baseline Diagnostic" navigates to /dashboard/baseline', async () => {
+      const mockUpdateProfile = vi.fn().mockResolvedValue({ error: null });
+      mockAuthContext({ updateProfile: mockUpdateProfile });
+
+      // Pre-populate store with valid profile data
+      useStationStore.setState({
+        user: {
+          name: 'Deepak',
+          state: 'KA',
+          city: 'Bangalore',
+          college: 'BMS College of Engineering',
+          domain: 'engineering',
+          degree: 'B.Tech / B.E.',
+          specialization: 'Computer Science',
+          year: '3rd Year',
+          semester: 'Semester 5',
+          graduationYear: '2026',
+          preparingFor: 'On-Campus Placements',
+          targetRole: 'Software Development Engineer',
+          targetJobType: 'Full-time Role',
+          dreamCompany: 'Google',
+          targetCompanies: ['Google', 'TCS'],
+          dreamJob: 'Software Development Engineer',
+          targetSalary: '15-25 LPA',
+          timeline: '6',
+          personalityScore: { iq: 50, eq: 50, rq: 50 },
+          weakPoints: [],
+        },
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/onboarding']}>
+          <Routes>
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/dashboard/baseline" element={<div>Baseline Assessment Screen</div>} />
+            <Route path="/dashboard" element={<div>Dashboard Screen</div>} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Advance through all 5 steps to Step 5
+      for (let s = 0; s < 5; s++) {
+        const nextBtn = screen.getByRole('button', { name: /Continue/i });
+        fireEvent.click(nextBtn);
+      }
+
+      // We are now at Step 5 (Projects, Target Recruiters & Package)
+      expect(screen.getByText(/Projects, Target Recruiters & Package/i)).toBeInTheDocument();
+
+      // Click "Complete Profile Setup"
+      const completeBtn = screen.getByRole('button', { name: /Complete Profile Setup/i });
+      fireEvent.click(completeBtn);
+
+      // Verify completion modal appears
+      await waitFor(() => {
+        expect(screen.getByText(/Profile Calibrated Successfully!/i)).toBeInTheDocument();
+      });
+
+      // Click "Take Baseline Diagnostic" button
+      const takeAssessmentBtn = screen.getByRole('button', { name: /Take Baseline Diagnostic/i });
+      fireEvent.click(takeAssessmentBtn);
+
+      // Verify navigation to /dashboard/baseline
+      await waitFor(() => {
+        expect(screen.getByText('Baseline Assessment Screen')).toBeInTheDocument();
+      });
+    });
+
+    it('B: Completed onboarding + "Skip & Proceed to Dashboard" navigates to /dashboard', async () => {
+      const mockUpdateProfile = vi.fn().mockResolvedValue({ error: null });
+      mockAuthContext({ updateProfile: mockUpdateProfile });
+
+      useStationStore.setState({
+        user: {
+          name: 'Deepak',
+          state: 'KA',
+          city: 'Bangalore',
+          college: 'BMS College of Engineering',
+          domain: 'engineering',
+          degree: 'B.Tech / B.E.',
+          specialization: 'Computer Science',
+          year: '3rd Year',
+          semester: 'Semester 5',
+          graduationYear: '2026',
+          preparingFor: 'On-Campus Placements',
+          targetRole: 'Software Development Engineer',
+          targetJobType: 'Full-time Role',
+          dreamCompany: 'Google',
+          targetCompanies: ['Google', 'TCS'],
+          dreamJob: 'Software Development Engineer',
+          targetSalary: '15-25 LPA',
+          timeline: '6',
+          personalityScore: { iq: 50, eq: 50, rq: 50 },
+          weakPoints: [],
+        },
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/onboarding']}>
+          <Routes>
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/dashboard/baseline" element={<div>Baseline Assessment Screen</div>} />
+            <Route path="/dashboard" element={<div>Dashboard Screen</div>} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      for (let s = 0; s < 5; s++) {
+        const nextBtn = screen.getByRole('button', { name: /Continue/i });
+        fireEvent.click(nextBtn);
+      }
+
+      const completeBtn = screen.getByRole('button', { name: /Complete Profile Setup/i });
+      fireEvent.click(completeBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Profile Calibrated Successfully!/i)).toBeInTheDocument();
+      });
+
+      const skipBtn = screen.getByRole('button', { name: /Skip & Proceed to Dashboard/i });
+      fireEvent.click(skipBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Dashboard Screen')).toBeInTheDocument();
+      });
+    });
+
+    it('C: Completed onboarding + browser refresh does not redirect back to /onboarding', () => {
+      // Simulate state after browser refresh when profile has onboarding_completed = true
+      mockAuthContext({
+        isAuthenticated: true,
+        isLoading: false,
+        hasCompletedOnboarding: true,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<div>Authenticated Dashboard</div>} />
+              <Route path="/dashboard/baseline" element={<div>Authenticated Baseline</div>} />
+              <Route path="/onboarding" element={<div>Onboarding Page</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Student stays on dashboard and is NOT redirected to /onboarding
+      expect(screen.getByText('Authenticated Dashboard')).toBeInTheDocument();
+      expect(screen.queryByText('Onboarding Page')).not.toBeInTheDocument();
+    });
+
+    it('D: Incomplete onboarding still correctly redirects dashboard attempts to /onboarding', () => {
+      mockAuthContext({
+        isAuthenticated: true,
+        isLoading: false,
+        hasCompletedOnboarding: false,
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/dashboard']}>
+          <Routes>
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<div>Authenticated Dashboard</div>} />
+              <Route path="/onboarding" element={<div>Onboarding Step 1 Page</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Incomplete onboarding redirects to /onboarding
+      expect(screen.getByText('Onboarding Step 1 Page')).toBeInTheDocument();
+      expect(screen.queryByText('Authenticated Dashboard')).not.toBeInTheDocument();
+    });
+
+    it('E: Profile persistence failure shows error and DOES NOT pretend onboarding completed', async () => {
+      const mockUpdateProfile = vi.fn().mockResolvedValue({
+        error: new Error('Failed to persist profile: database connection refused'),
+      });
+      mockAuthContext({ updateProfile: mockUpdateProfile });
+
+      useStationStore.setState({
+        user: {
+          name: 'Deepak',
+          state: 'KA',
+          city: 'Bangalore',
+          college: 'BMS College of Engineering',
+          domain: 'engineering',
+          degree: 'B.Tech / B.E.',
+          specialization: 'Computer Science',
+          year: '3rd Year',
+          semester: 'Semester 5',
+          graduationYear: '2026',
+          preparingFor: 'On-Campus Placements',
+          targetRole: 'Software Development Engineer',
+          targetJobType: 'Full-time Role',
+          dreamCompany: 'Google',
+          targetCompanies: ['Google', 'TCS'],
+          dreamJob: 'Software Development Engineer',
+          targetSalary: '15-25 LPA',
+          timeline: '6',
+          personalityScore: { iq: 50, eq: 50, rq: 50 },
+          weakPoints: [],
+        },
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/onboarding']}>
+          <Onboarding />
+        </MemoryRouter>
+      );
+
+      for (let s = 0; s < 5; s++) {
+        const nextBtn = screen.getByRole('button', { name: /Continue/i });
+        fireEvent.click(nextBtn);
+      }
+
+      const completeBtn = screen.getByRole('button', { name: /Complete Profile Setup/i });
+      fireEvent.click(completeBtn);
+
+      // Verify that error is shown
+      await waitFor(() => {
+        expect(screen.getByText(/Failed to persist profile/i)).toBeInTheDocument();
+      });
+
+      // Completion modal MUST NOT be shown
+      expect(screen.queryByText(/Profile Calibrated Successfully!/i)).not.toBeInTheDocument();
+    });
+
+    it('F: Auth & store state updates correctly with all onboarding fields', async () => {
+      let passedUpdates: Record<string, unknown> | null = null;
+      const mockUpdateProfile = vi.fn().mockImplementation((updates) => {
+        passedUpdates = updates;
+        return Promise.resolve({ error: null });
+      });
+      mockAuthContext({ updateProfile: mockUpdateProfile });
+
+      useStationStore.setState({
+        user: {
+          name: 'Deepak',
+          state: 'KA',
+          city: 'Bangalore',
+          college: 'BMS College of Engineering',
+          domain: 'engineering',
+          degree: 'B.Tech / B.E.',
+          specialization: 'Computer Science',
+          year: '3rd Year',
+          semester: 'Semester 5',
+          graduationYear: '2026',
+          preparingFor: 'On-Campus Placements',
+          targetRole: 'Software Development Engineer',
+          targetJobType: 'Full-time Role',
+          dreamCompany: 'Google',
+          targetCompanies: ['Google', 'TCS'],
+          dreamJob: 'Software Development Engineer',
+          targetSalary: '15-25 LPA',
+          timeline: '6',
+          personalityScore: { iq: 50, eq: 50, rq: 50 },
+          weakPoints: [],
+        },
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/onboarding']}>
+          <Onboarding />
+        </MemoryRouter>
+      );
+
+      for (let s = 0; s < 5; s++) {
+        const nextBtn = screen.getByRole('button', { name: /Continue/i });
+        fireEvent.click(nextBtn);
+      }
+
+      const completeBtn = screen.getByRole('button', { name: /Complete Profile Setup/i });
+      fireEvent.click(completeBtn);
+
+      await waitFor(() => {
+        expect(mockUpdateProfile).toHaveBeenCalledTimes(1);
+      });
+
+      expect(passedUpdates).not.toBeNull();
+      expect(passedUpdates?.onboarding_completed).toBe(true);
+      expect(passedUpdates?.city).toBe('Bangalore');
+      expect(passedUpdates?.college).toBe('BMS College of Engineering');
+      expect(passedUpdates?.degree).toBe('B.Tech / B.E.');
+      expect(passedUpdates?.specialization).toBe('Computer Science');
+      expect(passedUpdates?.target_role).toBe('Software Development Engineer');
+      expect(passedUpdates?.target_companies).toEqual(['Google', 'TCS']);
+      expect(passedUpdates?.target_salary).toBe('15-25 LPA');
+    });
   });
 });
+

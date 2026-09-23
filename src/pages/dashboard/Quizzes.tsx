@@ -8,6 +8,7 @@ import {
   ChevronRight, Target, Award, Activity, MapPin, Radio,
 } from 'lucide-react';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
+import QuizLearningReport, { type MissedQuizQuestion } from '@/components/quiz/QuizLearningReport';
 
 type Difficulty = 'basic' | 'medium' | 'hard';
 interface Q { q: string; options: string[]; correct: number; difficulty: Difficulty; company?: string; explanation: string; topic?: string; }
@@ -255,6 +256,7 @@ export default function Quizzes() {
   const [scores, setScores] = useState({ iq: 0, eq: 0, rq: 0 });
   const [showExplanation, setShowExplanation] = useState(false);
   const [answerAnim, setAnswerAnim] = useState<'correct' | 'wrong' | null>(null);
+  const [missedQuestions, setMissedQuestions] = useState<MissedQuizQuestion[]>([]);
 
   const questionStartTime = useRef(Date.now());
   const sessionStartTime = useRef(Date.now());
@@ -304,6 +306,7 @@ export default function Quizzes() {
     setShowFeedback(false);
     setShowExplanation(false);
     setAnswerAnim(null);
+    setMissedQuestions([]);
     questionStartTime.current = Date.now();
     sessionStartTime.current = Date.now();
   };
@@ -346,6 +349,21 @@ export default function Quizzes() {
     setShowExplanation(true);
     const isCorrect = ansIdx === currentQuestion.correct;
     setAnswerAnim(isCorrect ? 'correct' : 'wrong');
+    if (!isCorrect) {
+      setMissedQuestions(prev => [
+        ...prev,
+        {
+          q: currentQuestion.q,
+          topic: currentQuestion.topic || selectedTopic,
+          options: currentQuestion.options,
+          correct: currentQuestion.correct,
+          selectedAnswer: ansIdx,
+          explanation: currentQuestion.explanation,
+          section: currentSection,
+          company: currentQuestion.company,
+        },
+      ]);
+    }
     const timeTaken = Math.round((Date.now() - questionStartTime.current) / 1000);
     const topic = currentQuestion.topic || selectedTopic;
     recordQuizAnswer(topic, isCorrect, timeTaken, selectedDifficulty);
@@ -638,6 +656,13 @@ export default function Quizzes() {
           </RadarChart>
         </ResponsiveContainer>
       </div>
+      {/* Evidence-Based Diagnostic Learning & Recovery System */}
+      <QuizLearningReport
+        missedQuestions={missedQuestions}
+        quizTopic={selectedTopic}
+        accuracy={overallPct}
+        onRetakeTopic={(topic) => startPlaying(topic)}
+      />
       <div className="grid grid-cols-2 gap-3">
         <button onClick={() => startPlaying(selectedTopic)} className="flex items-center justify-center gap-1.5 py-3.5 rounded-xl bg-muted text-sm font-bold hover:bg-muted/80 transition-all hover:-translate-y-0.5"><Timer className="w-4 h-4" /> Retry Journey</button>
         <button onClick={() => setPhase('select')} className="flex items-center justify-center gap-1.5 py-3.5 rounded-xl bg-accent text-accent-foreground text-sm font-bold hover:opacity-90 transition-all hover:-translate-y-0.5 hover:shadow-md"><Award className="w-4 h-4" /> New Platform <ArrowRight className="w-3.5 h-3.5" /></button>

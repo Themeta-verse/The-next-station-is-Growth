@@ -36,7 +36,9 @@ export default function SettingsPage() {
     name: storeUser?.name || '',
     city: storeUser?.city || '',
     college: storeUser?.college || '',
+    degree: storeUser?.degree || 'B.Tech / B.E.',
     specialization: storeUser?.specialization || '',
+    targetRole: storeUser?.targetRole || storeUser?.dreamJob || '',
     dreamCompany: storeUser?.dreamCompany || '',
   });
   const [profileLoading, setProfileLoading] = useState(false);
@@ -70,7 +72,9 @@ export default function SettingsPage() {
         name: storeUser.name || '',
         city: storeUser.city || '',
         college: storeUser.college || '',
+        degree: storeUser.degree || 'B.Tech / B.E.',
         specialization: storeUser.specialization || '',
+        targetRole: storeUser.targetRole || storeUser.dreamJob || '',
         dreamCompany: storeUser.dreamCompany || '',
       });
     }
@@ -95,7 +99,9 @@ export default function SettingsPage() {
       name: profileForm.name.trim(),
       city: profileForm.city.trim(),
       college: profileForm.college.trim(),
+      degree: profileForm.degree.trim(),
       specialization: profileForm.specialization.trim(),
+      target_role: profileForm.targetRole.trim(),
       dream_company: profileForm.dreamCompany.trim(),
       domain,
     });
@@ -275,11 +281,32 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Degree / Program</label>
+              <input
+                placeholder="e.g. B.Tech / B.E."
+                value={profileForm.degree}
+                onChange={(e) => setProfileForm((p) => ({ ...p, degree: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+            <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Specialization / Branch</label>
               <input
                 placeholder="e.g. Computer Science"
                 value={profileForm.specialization}
                 onChange={(e) => setProfileForm((p) => ({ ...p, specialization: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Target Career Role</label>
+              <input
+                placeholder="e.g. Software Engineer, Data Analyst"
+                value={profileForm.targetRole}
+                onChange={(e) => setProfileForm((p) => ({ ...p, targetRole: e.target.value }))}
                 className={inputClass}
               />
             </div>

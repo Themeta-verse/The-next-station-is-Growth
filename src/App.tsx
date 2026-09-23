@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useStationStore } from "@/store/useStationStore";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import ChatBot from "./components/ChatBot";
 import Landing from "./pages/Landing";
@@ -33,6 +34,7 @@ import PlacementScore from "./pages/dashboard/PlacementScore";
 import CompanyPrep from "./pages/dashboard/CompanyPrep";
 import Last7Days from "./pages/dashboard/Last7Days";
 import Leaderboard from "./pages/dashboard/Leaderboard";
+import BaselineAssessment from "./pages/dashboard/BaselineAssessment";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,42 +59,46 @@ const App = () => (
         <AuthProvider>
           <ThemeWrapper>
             <ChatBot />
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/update-password" element={<UpdatePassword />} />
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/update-password" element={<UpdatePassword />} />
 
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/profile" element={<Navigate to="/dashboard/profile" replace />} />
-                <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
-                <Route path="/dashboard" element={<Dashboard />}>
-                  <Route index element={<Home />} />
-                  <Route path="weekly" element={<WeeklyPlan />} />
-                  <Route path="quizzes" element={<Quizzes />} />
-                  <Route path="interview" element={<InterviewPrep />} />
-                  <Route path="speech" element={<SpeechPractice />} />
-                  <Route path="mock-interview" element={<MockInterview />} />
-                  <Route path="weakness" element={<WeaknessDetector />} />
-                  <Route path="readiness" element={<PlacementScore />} />
-                  <Route path="company-prep" element={<CompanyPrep />} />
-                  <Route path="last-7-days" element={<Last7Days />} />
-                  <Route path="vault" element={<Vault />} />
-                  <Route path="social" element={<Social />} />
-                  <Route path="resume" element={<Resume />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="settings" element={<SettingsPage />} />
-                  <Route path="companies" element={<Companies />} />
-                  <Route path="jobs" element={<Jobs />} />
-                  <Route path="leaderboard" element={<Leaderboard />} />
+                {/* Protected Routes */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/profile" element={<Navigate to="/dashboard/profile" replace />} />
+                  <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />}>
+                    <Route index element={<Home />} />
+                    <Route path="weekly" element={<WeeklyPlan />} />
+                    <Route path="quizzes" element={<Quizzes />} />
+                    <Route path="interview" element={<InterviewPrep />} />
+                    <Route path="speech" element={<SpeechPractice />} />
+                    <Route path="mock-interview" element={<MockInterview />} />
+                    <Route path="weakness" element={<WeaknessDetector />} />
+                    <Route path="readiness" element={<PlacementScore />} />
+                    <Route path="company-prep" element={<CompanyPrep />} />
+                    <Route path="last-7-days" element={<Last7Days />} />
+                    <Route path="vault" element={<Vault />} />
+                    <Route path="social" element={<Social />} />
+                    <Route path="resume" element={<Resume />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="baseline" element={<BaselineAssessment />} />
+                    <Route path="interview-simulator" element={<MockInterview />} />
+                    <Route path="companies" element={<Companies />} />
+                    <Route path="jobs" element={<Jobs />} />
+                    <Route path="leaderboard" element={<Leaderboard />} />
+                  </Route>
                 </Route>
-              </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ErrorBoundary>
           </ThemeWrapper>
         </AuthProvider>
       </BrowserRouter>

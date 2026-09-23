@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStationStore, domainConfig } from '@/store/useStationStore';
 import { useAuth } from '@/context/AuthContext';
 import { Clock, FileText, X, TrendingUp, AlertTriangle, Award, CheckCircle, BarChart3, MapPin, Video, ExternalLink, BookOpen, ChevronRight, Play, Brain, ArrowRight } from 'lucide-react';
+import VisualRoadmap, { type RoadmapMilestone } from '@/components/roadmap/VisualRoadmap';
 
 export default function WeeklyPlan() {
   const { domain, user, completeTask, rank, totalStudents, language } = useStationStore();
@@ -14,6 +15,7 @@ export default function WeeklyPlan() {
   const [activeQuiz, setActiveQuiz] = useState<number | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number | null>>({});
   const [quizSubmitted, setQuizSubmitted] = useState<Set<string>>(new Set());
+  const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
 
   const resources = config.weeklyResources as Record<string, { videos: string[]; pdfs: string[] }>;
 
@@ -27,6 +29,41 @@ export default function WeeklyPlan() {
     questions: getStepQuestions(domain, topic),
     quizzes: getStepQuizzes(domain, topic),
   }));
+
+  const milestones: RoadmapMilestone[] = useMemo(() => {
+    const categories: Array<RoadmapMilestone['category']> = [
+      'Foundation',
+      'Core Skills',
+      'Core Skills',
+      'Projects',
+      'Interview Prep',
+      'Final Clearance',
+    ];
+    return steps.map((s, i) => ({
+      id: `milestone-${i}`,
+      stepNumber: i + 1,
+      stationName: `Station ${i + 1}: ${s.topic.toUpperCase()}`,
+      title: s.topic,
+      category: categories[Math.min(i, categories.length - 1)],
+      estimatedHours: s.time,
+      description: s.description,
+      prerequisites: i === 0 ? ['Diagnostic Assessment'] : [steps[i - 1].topic],
+      tasks: s.questions.map((q, qi) => ({
+        id: `task-${i}-${qi}`,
+        text: q,
+        completed: Boolean(taskCompletions[`task-${i}-${qi}`]),
+      })),
+      resources: [
+        ...s.videos.map((v, vi) => ({ title: `Video Tutorial ${vi + 1}`, type: 'video' as const, url: v })),
+        ...s.pdfs.map(p => ({ title: p, type: 'article' as const })),
+      ],
+      quizCount: s.quizzes.length,
+    }));
+  }, [steps, taskCompletions]);
+
+  const completedMilestoneSet = useMemo(() => {
+    return new Set(Array.from(completedSteps).map(i => `milestone-${i}`));
+  }, [completedSteps]);
 
   const toggleStep = (i: number) => {
     setCompletedSteps(prev => {
@@ -65,165 +102,108 @@ export default function WeeklyPlan() {
         </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="bg-card rounded-xl border border-border p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium">{totalCompleted}/{steps.length} {isHi ? 'स्टेप पूर्ण' : 'steps completed'}</p>
-          <p className="text-sm font-bold text-accent">{overallProgress}%</p>
-        </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${overallProgress}%` }} />
-        </div>
-      </div>
+      {/* Connected Visual Roadmap */}
+      <VisualRoadmap
+        milestones={milestones}
+        completedMilestoneIds={completedMilestoneSet}
+        onToggleMilestone={(id) => {
+          const idx = parseInt(id.replace('milestone-', ''), 10);
+          toggleStep(idx);
+        }}
+        onToggleTask={(_mId, tId) => {
+          setTaskCompletions(prev => ({ ...prev, [tId]: !prev[tId] }));
+        }}
+        onTakeQuiz={(id) => {
+          const idx = parseInt(id.replace('milestone-', ''), 10);
+          setActiveQuiz(idx);
+        }}
+        targetRole={user?.targetRole || 'Software Engineer'}
+        targetCompany={user?.dreamCompany || config.companies[0]}
+      />
 
-      {/* Steps */}
-      <div className="space-y-4">
-        {steps.map((step, i) => {
-          const done = completedSteps.has(i);
-          const expanded = expandedStep === i;
-          const isQuizActive = activeQuiz === i;
-          return (
-            <div key={i} className="relative">
-              {i < steps.length - 1 && (
-                <div className={`absolute left-5 top-16 w-0.5 h-[calc(100%-2rem)] ${done ? 'bg-accent' : 'bg-border'}`} />
-              )}
-              <div className={`bg-card rounded-2xl border transition-all ${done ? 'border-accent/40' : 'border-border'} overflow-hidden`}>
-                <div className="flex items-start gap-4 p-5">
-                  <button onClick={() => toggleStep(i)}
-                    className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm transition-all ${
-                      done ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground border-2 border-border'
-                    }`}>
-                    {done ? <CheckCircle className="w-5 h-5" /> : step.step}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-accent font-bold">Step {step.step}</span>
-                        <h3 className={`font-bold text-base mt-0.5 ${done ? 'line-through text-muted-foreground' : ''}`}>{step.topic}</h3>
-                      </div>
-                      <button onClick={() => setExpandedStep(expanded ? null : i)}
-                        className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-medium hover:scale-105 transition-transform flex items-center gap-1 flex-shrink-0">
-                        {isHi ? 'सीखना शुरू करें' : 'Start Learning'} <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Est. {step.time}</span>
-                      <span className="text-xs text-accent flex items-center gap-1"><Brain className="w-3 h-3" /> {step.quizzes.length} {isHi ? 'क्विज़' : 'quizzes'}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{step.description}</p>
+      {/* Interactive Milestone Quiz Modal */}
+      {activeQuiz !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setActiveQuiz(null)}
+        >
+          <div
+            className="bg-card rounded-2xl border border-border p-6 max-w-xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl animate-scale-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-accent" />
+                <h3 className="font-bold text-base text-foreground">
+                  {steps[activeQuiz]?.topic} — {isHi ? 'मील का पत्थर क्विज़' : 'Milestone Validation Quiz'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveQuiz(null)}
+                className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-                    {/* Resource links */}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {step.videos.slice(0, 2).map((url, vi) => (
-                        <a key={vi} href={url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs hover:bg-accent/10 transition-colors">
-                          <Play className="w-3 h-3 text-accent" /> Video {vi + 1} <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ))}
-                      {step.pdfs.slice(0, 1).map((pdf, pi) => (
-                        <span key={pi} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/50 text-xs">
-                          <BookOpen className="w-3 h-3 text-accent" /> {pdf}
-                        </span>
-                      ))}
-                      <button onClick={() => setActiveQuiz(isQuizActive ? null : i)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition-colors">
-                        <Brain className="w-3 h-3" /> {isHi ? 'क्विज़ लें' : 'Take Quiz'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded content */}
-                {expanded && (
-                  <div className="px-5 pb-5 pt-0 border-t border-border mt-0 animate-fade-in">
-                    <div className="ml-14 space-y-4 pt-4">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">{isHi ? 'अभ्यास प्रश्न' : 'Practice Questions'}</p>
-                        <div className="space-y-2">
-                          {step.questions.map((q, qi) => (
-                            <div key={qi} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/30 text-xs">
-                              <span className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-[10px] flex-shrink-0">{qi + 1}</span>
-                              <span>{q}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {step.videos.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">{isHi ? 'वीडियो' : 'Videos'}</p>
-                          <div className="grid gap-2">
-                            {step.videos.map((url, vi) => {
-                              const videoId = extractYouTubeId(url);
-                              return videoId ? (
-                                <div key={vi} className="rounded-xl overflow-hidden aspect-video bg-muted">
-                                  <iframe src={`https://www.youtube.com/embed/${videoId}`} title={`${step.topic} Video ${vi + 1}`}
-                                    className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                                </div>
-                              ) : (
-                                <a key={vi} href={url} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-accent/10 transition-all">
-                                  <Video className="w-5 h-5 text-accent" />
-                                  <span className="text-xs">{isHi ? 'वीडियो' : 'Watch Video'} {vi + 1}</span>
-                                  <ExternalLink className="w-3 h-3 ml-auto" />
-                                </a>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Quiz section */}
-                {isQuizActive && (
-                  <div className="px-5 pb-5 border-t border-border animate-fade-in">
-                    <div className="ml-14 pt-4 space-y-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-accent flex items-center gap-2">
-                        <Brain className="w-3 h-3" /> {isHi ? `${step.topic} — क्विज़` : `${step.topic} — Quiz`}
-                      </p>
-                      {step.quizzes.map((quiz, qi) => {
-                        const key = `${i}-${qi}`;
-                        const answered = quizSubmitted.has(key);
-                        const selected = quizAnswers[key];
+            <div className="space-y-4 pt-1">
+              {steps[activeQuiz]?.quizzes.map((quiz, qi) => {
+                const key = `${activeQuiz}-${qi}`;
+                const answered = quizSubmitted.has(key);
+                const selected = quizAnswers[key];
+                return (
+                  <div key={qi} className="p-4 rounded-xl bg-muted/30 border border-border space-y-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      {qi + 1}. {quiz.question}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {quiz.options.map((opt, oi) => {
+                        let cls = 'border-border hover:border-accent/50 bg-background text-foreground';
+                        if (answered) {
+                          if (oi === quiz.correct) cls = 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold';
+                          else if (oi === selected) cls = 'border-destructive bg-destructive/10 text-destructive font-semibold';
+                          else cls = 'border-border opacity-50 bg-background';
+                        }
                         return (
-                          <div key={qi} className="p-4 rounded-xl bg-muted/30 border border-border space-y-3">
-                            <p className="text-sm font-medium">{qi + 1}. {quiz.question}</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {quiz.options.map((opt, oi) => {
-                                let cls = 'border-border hover:border-accent/50';
-                                if (answered) {
-                                  if (oi === quiz.correct) cls = 'border-accent bg-accent/10 text-accent';
-                                  else if (oi === selected) cls = 'border-destructive bg-destructive/10 text-destructive';
-                                }
-                                return (
-                                  <button key={oi} onClick={() => handleQuizAnswer(i, qi, oi)}
-                                    disabled={answered}
-                                    className={`text-xs py-2.5 px-3 rounded-xl border transition-all text-left ${cls} disabled:cursor-default`}>
-                                    {opt}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            {answered && (
-                              <div className={`text-xs p-2 rounded-lg ${selected === quiz.correct ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'}`}>
-                                {selected === quiz.correct ? (isHi ? '✅ सही!' : '✅ Correct!') : (isHi ? '❌ गलत।' : '❌ Wrong.')} {quiz.explanation}
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            key={oi}
+                            onClick={() => handleQuizAnswer(activeQuiz, qi, oi)}
+                            disabled={answered}
+                            className={`text-xs py-2.5 px-3 rounded-xl border transition-all text-left ${cls} disabled:cursor-default`}
+                          >
+                            {opt}
+                          </button>
                         );
                       })}
-                      <p className="text-xs text-muted-foreground text-center">
-                        {step.quizzes.filter((_, qi) => quizSubmitted.has(`${i}-${qi}`)).length}/{step.quizzes.length} {isHi ? 'उत्तर दिए' : 'answered'}
-                      </p>
                     </div>
+                    {answered && (
+                      <div className={`text-xs p-2.5 rounded-lg border ${selected === quiz.correct ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-destructive/10 border-destructive/20 text-destructive'}`}>
+                        {selected === quiz.correct ? (isHi ? '✅ सही!' : '✅ Correct!') : (isHi ? '❌ गलत।' : '❌ Wrong.')}{' '}
+                        {quiz.explanation}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border/60">
+              <p className="text-xs text-muted-foreground">
+                {steps[activeQuiz]?.quizzes.filter((_, qi) => quizSubmitted.has(`${activeQuiz}-${qi}`)).length}/
+                {steps[activeQuiz]?.quizzes.length} {isHi ? 'उत्तर दिए गए' : 'questions answered'}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveQuiz(null)}
+                className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-xs font-semibold hover:opacity-90"
+              >
+                Close & Return to Journey
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Report Modal */}
       {showReport && (

@@ -53,16 +53,17 @@ export default function Jobs() {
   const allJobs = domain === 'engineering' ? engineeringJobs : domain === 'commerce' ? commerceJobs : artsJobs;
 
   const calcMatch = (job: Job) => {
-    const baseIQ = user?.personalityScore?.iq || 30;
+    const baseIQ = user?.personalityScore?.iq || 50;
     const weakCount = user?.weakPoints?.length || 0;
     const companyBonus = job.company === user?.dreamCompany ? 10 : 0;
-    return Math.min(95, Math.max(10, Math.round(baseIQ * 0.4 + tasksDone * 0.5 - weakCount * 3 + companyBonus)));
+    const skillsBonus = (user?.skills?.length || 0) * 3;
+    return Math.min(95, Math.max(25, Math.round(baseIQ * 0.3 + tasksDone * 0.4 + skillsBonus - weakCount * 2 + companyBonus)));
   };
 
-  const calcProbability = (job: Job) => {
+  const calcReadinessIndex = (job: Job) => {
     const match = calcMatch(job);
-    const ratio = job.applicants > 0 ? Math.round((1 / (job.applicants / 1000)) * match * 10) : match;
-    return Math.min(95, Math.max(1, ratio));
+    const verifiedBonus = user?.baselineAssessment ? 10 : 0;
+    return Math.min(98, Math.max(30, match + verifiedBonus));
   };
 
   const filtered = allJobs.filter(j => {
@@ -115,7 +116,7 @@ export default function Jobs() {
       <div className="grid sm:grid-cols-2 gap-4">
         {filtered.map((job, i) => {
           const match = calcMatch(job);
-          const prob = calcProbability(job);
+          const readinessIndex = calcReadinessIndex(job);
           const jobKey = `${job.title}-${job.company}`;
           const isApplied = appliedJobs.has(jobKey);
           const isSaved = savedJobs.has(jobKey);
@@ -144,11 +145,11 @@ export default function Jobs() {
               <div className="p-3 rounded-xl bg-muted/30 mb-3 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-muted-foreground"><Users className="w-3 h-3" /> {job.applicants.toLocaleString()} {isHi ? 'आवेदक' : 'applicants'}</span>
-                  <span className={`font-bold ${prob < 10 ? 'text-destructive' : prob < 30 ? 'text-yellow-500' : 'text-accent'}`}>{prob}% {isHi ? 'संभावना' : 'probability'}</span>
+                  <span className="font-bold text-accent">{readinessIndex}% {isHi ? 'तैयारी इंडेक्स' : 'Readiness Index'}</span>
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${prob < 10 ? 'bg-destructive' : prob < 30 ? 'bg-yellow-500' : 'bg-accent'}`}
-                    style={{ width: `${prob}%` }} />
+                  <div className="h-full rounded-full transition-all bg-accent"
+                    style={{ width: `${readinessIndex}%` }} />
                 </div>
               </div>
 
@@ -243,10 +244,13 @@ export default function Jobs() {
                     <p className="text-[10px] text-muted-foreground">{isHi ? 'आपका मैच' : 'Your Match'}</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold" style={{ color: calcProbability(selectedJob) < 10 ? 'hsl(var(--destructive))' : 'hsl(var(--accent))' }}>{calcProbability(selectedJob)}%</p>
-                    <p className="text-[10px] text-muted-foreground">{isHi ? 'चयन संभावना' : 'Selection Prob.'}</p>
+                    <p className="text-lg font-bold text-accent">{calcReadinessIndex(selectedJob)}%</p>
+                    <p className="text-[10px] text-muted-foreground">{isHi ? 'तैयारी इंडेक्स' : 'Readiness Index'}</p>
                   </div>
                 </div>
+                <p className="text-[10px] text-muted-foreground italic text-center mt-2">
+                  Readiness Index represents syllabus alignment & practice consistency. Not an official hiring guarantee.
+                </p>
               </div>
 
               <div className="flex gap-3">

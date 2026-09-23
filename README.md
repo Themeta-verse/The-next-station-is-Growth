@@ -131,9 +131,119 @@ Protected areas (`/dashboard/*` and `/onboarding`) are guarded by `<ProtectedRou
 - **Verified Placement Readiness Credential**: Modal accreditation certificate preview with candidate name, institution, score breakdown, unique verification ID (`STN-PL-XXXXXX`), and browser print/PDF export.
 - **Database Score Synchronization**: "Sync Profile" updates Supabase `public.profiles` (`score`) and updates leaderboard rankings.
 
-### 8. AI Simulation & Resilience Engine (`src/lib/ai.ts`)
-- Intelligent streaming and fallback simulation for `mock-interview`, `interview-prep`, `self-intro-feedback`, `self-intro-generate`, and company guides.
-- Gracefully handles missing edge functions or rate limits without client crashes or blank screens.
+### 8. Evidence-Based Job Readiness & Skill Alignment Engine (`src/components/readiness/JobReadinessCalculator.tsx`)
+- Replaces naive "before/after" guessing widgets with an evidence-based preparation alignment model.
+- Evaluates candidate skills against verified round structures and recruiter expectations for Tier 1 (Product & Core Tech), Tier 2 (Growth & Tech Services), Tier 3 (Enterprise & Mass Recruiters), Banking & Finance, and Civil Services.
+- **5-Pillar Readiness Model**:
+  - Technical Skill Match (30%)
+  - Data Structures & Algorithms (25%)
+  - CS Fundamentals / Core Domain (20%)
+  - Aptitude & Logical Reasoning (15%)
+  - Interview & Behavioral Command (10%)
+- **Recruiter Syllabus Notice**: Explicit disclaimer that tiers classify recruitment syllabus intensity rather than moral rankings.
+- **Graceful Fallback**: For unmodeled recruiters, avoids fabricating numbers and provides a "Request Syllabus Addition" button.
+
+### 9. Diagnostic Learning & Recovery System (`src/components/quiz/QuizLearningReport.tsx`)
+- Transforms quiz results from a basic score into an actionable recovery and learning engine.
+- Matches missed questions to a structured curriculum (`src/data/learningCurriculum.ts`) identifying underlying misconceptions.
+- Displays key mental models and cheat sheets to clarify common traps.
+- Curates targeted high-yield resources with metadata: Source (NeetCode, GateSmashers, Striver, MDN), duration, level, and specific recommendation reasons.
+- Interactive "Learn Concept" study sheet modal with prerequisites, conceptual breakdown, and immediate recovery drills.
+- One-click "Focus Task" integration to add weak areas directly into profile priorities.
+
+### 10. Connected Visual Roadmap (`src/components/roadmap/VisualRoadmap.tsx`)
+- Replaces static text lists with an interactive subway/station journey track (`WeeklyPlan.tsx`).
+- Connected milestones with distinct station markers, progress indicators, and prerequisite enforcement.
+- Integrated deliverables checklist, video lessons, and modal quiz validation.
+- Structures AI roadmap generations in `WeaknessDetector.tsx` into visual milestone cards.
+
+### 11. Unified Student Readiness Cockpit (`src/components/dashboard/StudentReadinessSnapshot.tsx`)
+- Mounted on the Home dashboard (`/dashboard`) as a cohesive student cockpit.
+- Displays verified profile metadata (Target Role, Dream Company, Degree, College).
+- Dynamically computes a multi-pillar readiness score and live progress bars from real store state and quiz metrics.
+- Highlights current top focus priorities and recommends contextual next actions.
+
+### 13. Realistic AI Video Mock Interview System (`/dashboard/mock-interview`)
+- **Authentic Interview Simulation**: Replaces legacy text typing with a real-time spoken and visual interview session.
+- **Pre-Interview Configuration**:
+  - Automatically pre-filled with candidate academic baseline, target role, and target companies from the student profile.
+  - Recruiter selection strictly grounded in `SUPPORTED_COMPANIES` (Tier 1, Tier 2, Tier 3, Banking, Civil Services) with clear disclaimers for unsupported recruiters.
+  - Configurable interview focus (`Technical`, `HR / Behavioral`, `DSA`, `CS Fundamentals`, `Company-specific`, `Mixed`), difficulty (`Beginner`, `Intermediate`, `Advanced`), and duration (`Short` 8m, `Standard` 15m, `Extended` 25m).
+- **Pre-Interview Device Check & Diagnostics (`src/components/interview/PreInterviewDeviceCheck.tsx`)**:
+  - Live local camera mirror with aspect ratio framing.
+  - Real-time Web Audio API frequency analyser and RMS volume meter for the microphone.
+  - Hardware device enumeration (`enumerateDevices`) allowing camera and microphone selection.
+  - Descriptive, non-blocking error handling for permission denial with retry workflows.
+- **Dual-Feed Video Stage (`src/components/interview/InterviewVideoStage.tsx`)**:
+  - Upper screen: Animated interviewer visual representation with active TTS voice, audio waveforms, listening status, and replay controls.
+  - Lower screen: Mirrored student webcam feed, live speech-to-text transcript caption overlay, and mute/camera hardware toggles.
+  - Spoken-first interaction via browser `SpeechRecognition` (STT) and `speechSynthesis` (TTS), with keyboard text input as an accessible fallback.
+  - Session timer countdown and emergency pause/end controls.
+- **Conversational Interview Engine (`src/services/interviewEngine.ts`)**:
+  - Dynamically builds AI prompts incorporating candidate degree, domain, known skills, baseline proficiencies, and company syllabus expectations.
+  - Evaluates student's spoken transcript to dynamically generate follow-up questions (probing deeper into stated complexities, challenging assumptions, or asking practical scenarios) rather than following a static list.
+- **Multi-Dimensional Interview Report (`src/components/interview/InterviewReportView.tsx`)**:
+  - Scores candidate performance across 6 explicit dimensions: Technical Depth, Problem Solving, Communication Clarity, Answer Structure (STAR), Company Fit, and Composure/Fluency.
+  - Quantifies measurable verbal signals: Words Per Minute (WPM), total words spoken, session duration, and filler word frequency (`um`, `uh`, `like`, `basically`).
+  - Question-by-question breakdown featuring verbatim transcripts, strengths, missing points, technical corrections, and exemplar model answers.
+- **Closed Learning Loop Integration**:
+  - Automatically identifies preparation gaps and weak concepts from interview answers.
+  - One-click "Save Weakness" synchronizes directly to `useStationStore.addWeakPoint()` and the Weakness Detector.
+  - "Study Concept" launches curated educational sheets (`src/data/learningCurriculum.ts`) with mental models and external resources (NeetCode, Striver, GateSmashers, MDN).
+  - Persists session audits to `usePerformanceStore.saveMockInterviewSession()` and updates overall readiness scores (+80 XP progress).
+- **Privacy & Security**:
+  - Video and audio streams are processed locally in the browser and **never recorded or stored** on external servers.
+  - Hardware tracks are stopped immediately upon session exit or component unmount.
+
+---
+
+## Phase 4: Adaptive Learning, Evidence-Based Resources & Visual Roadmap
+
+Phase 4 establishes an adaptive, evidence-based learning cycle that transforms diagnostic assessment gaps into verified skill mastery:
+
+### 1. Curated Learning Resources Metadata Model (`src/data/learningCurriculum.ts`)
+- **Authoritative Curation Only**: No random search links, SEO affiliate content, or unverified claims.
+- **Resource Metadata Schema**:
+  - `sourceType`: `'official_doc'` (PostgreSQL, Python, MDN), `'institution'` (MIT OpenCourseWare, NPTEL), `'industry_standard'` (NeetCode, Striver A2Z, GateSmashers), `'verified_educator'`.
+  - `provider`, `estimatedMinutes`, `lastVerified`, `language`, `prerequisites`, and `completionCriteria`.
+- Covers core curriculum across Engineering (DSA, DBMS, OS, Networking, Distributed Systems), Commerce (Financial Accounting, Cost Accounting, Banking), and General Studies (Indian Polity, Quantitative Aptitude).
+
+### 2. Weak-Point Structured Learning Path Engine (`src/services/learningPathEngine.ts`)
+- Generates a pedagogically sound 5-phase mastery path for any detected weak point:
+  1. **Phase 1 — Prerequisites First**: Review foundation building blocks before attempting the advanced topic.
+  2. **Phase 2 — Core Concept Study**: Deep mental model and authoritative reference.
+  3. **Phase 3 — Invariants & Common Traps**: Diagnostic analysis explaining *why* students make specific errors.
+  4. **Phase 4 — Practice Drills**: Targeted problem sets ordered from standard patterns to edge cases.
+  5. **Phase 5 — Reassessment Checkpoint**: Timed diagnostic questions to verify conceptual retention.
+- Reassessment logic evaluates attempts against a **&ge; 75% threshold**. Achieving &ge; 75% elevates student assessed competency level and clears the weak point.
+
+### 3. Diagnostic Learning & Recovery Report (`src/components/quiz/QuizLearningReport.tsx`)
+- Structured concept recovery cards replacing generic quiz summaries:
+  - Assessed question vs student selected answer vs correct answer with reasoning.
+  - Visible "Why You Missed It / Common Trap" root-cause explanations.
+  - Subtopic prerequisite chain ("What to Study").
+  - Badged authoritative resources with source type and time estimate.
+  - Interactive **Verification Checkpoint Modal**: students answer targeted diagnostic questions; scoring &ge; 75% immediately calls `updateSkillEvidence` in `useStationStore` and marks the weak point as resolved.
+
+### 4. Personalized Daily Focus (`src/components/dashboard/TodaysFocus.tsx` & `src/services/skillGapEngine.ts`)
+- Dynamically prioritized daily tasks derived from actual student gaps, target company, and target role:
+  - Explicit priority tiers: `HIGH PRIORITY` (Active Weak Points), `PRACTICE` (Targeted Drills), `COMPANY PREP` (Recruiter Checkpoints), `COMMUNICATION` (AI Video Interview), `FOUNDATION`.
+  - Visible diagnostic reasons explaining *why* each task was assigned.
+  - Accurate time estimates for planning daily study sessions.
+
+### 5. Connected Visual Milestone Roadmap (`src/components/roadmap/VisualRoadmap.tsx`)
+- Horizontal stage pipeline visualization: `START` &rarr; `FOUNDATION` &rarr; `CORE SKILLS` &rarr; `ROLE SKILLS` &rarr; `COMPANY PREP` &rarr; `MOCK INTERVIEW` &rarr; `JOB READY`.
+- Milestone cards with key topic status breakdown: `✓` (Mastered), `⚠` (Weak Point Detected), `○` (Pending).
+- Milestone lock state with explicit prerequisite indicators (`Requires: [prerequisite]`).
+- Expandable stations with actionable deliverables and toggleable completion tracking.
+
+### 6. Evidence-Based Company Preparation & Progression Comparison
+- **Company Preparation (`src/pages/dashboard/Companies.tsx`)**:
+  - Grounded strictly in `SUPPORTED_COMPANIES` with verified role expectations and screening rounds.
+  - Unknown company queries display "Company Not Currently Supported" and offer graceful guidance without fabricating odds.
+- **Measurable Progression (`src/components/readiness/JobReadinessCalculator.tsx`)**:
+  - Displays "Not Enough Evidence Yet" banner for new students with no assessment data.
+  - Multi-dimensional progression grid comparing **Baseline Assessed** vs **Current Verified** vs **Target Requirement** across technical match, algorithmic problem solving, CS core principles, aptitude, and interview communication.
 
 ---
 
@@ -145,30 +255,23 @@ Protected areas (`/dashboard/*` and `/onboarding`) are guarded by `<ProtectedRou
 - **State Management**: Zustand 5 (`useStationStore`, `usePerformanceStore`, `useLeaderboardStore`)
 - **Server State & Caching**: TanStack React Query 5
 - **Backend & Auth**: Supabase Auth, PostgreSQL, Supabase Realtime
+- **Speech & Media**: Web Speech Recognition (STT), Web Speech Synthesis (TTS), Web Audio API Analyser, MediaStream API
 - **Testing**: Vitest, React Testing Library, JSDOM
 
 ---
 
 ## Current Status & Development Notes
 
-- **Placement Readiness Diagnostic Hub (Live & Complete)**:
-  - Accessible at `/dashboard/readiness` and via the "Readiness Score" sidebar navigation.
-  - Full SVG gauge, 4-pillar breakdown, company probability matrix, and interactive score simulator.
-  - Verified Credential Modal with print/PDF export and unique certificate ID.
-  - Real-time sync with Supabase `public.profiles` (`score`) and leaderboard ranking.
-- **AI Resilience Engine (Live & Resilient)**:
-  - Streaming fallback engine handles mock interview feedback, self-intro generation, and company prep.
-- **Authentication & Onboarding (Production-Quality & Live)**:
-  - Connected to active Supabase project (`https://unblvaxyxkbkxlhyiejf.supabase.co`).
-  - Top-level `AuthProvider` and `useAuth()` implemented for reliable session persistence across page refreshes.
-  - `ProtectedRoute` implemented for route guarding (`/dashboard/*`, `/profile`, `/settings`, and `/onboarding`).
-  - Unified `/auth` and `/login` experience with client validation, confirm password, and stream selection.
-  - Complete password recovery flow (`/forgot-password` and `/update-password`).
-  - Multi-step interactive student onboarding flow (`/onboarding`) with live Supabase upsert.
-  - Real-time leaderboard (`/dashboard/leaderboard`) with live PostgreSQL changes subscription.
-  - Comprehensive error translation via `formatAuthError()`.
-  - `.env` untracked and excluded in `.gitignore`; `.env.example` created with empty variable templates.
-  - **35 automated unit tests passing** across 4 test suites; clean production build.
+- **Automated Test Suite**:
+  - **92 automated unit tests passing** across 13 test suites (`example.test.ts`, `profile.test.tsx`, `auth.test.tsx`, `errorBoundary.test.tsx`, `onboarding.test.tsx`, `readiness.test.tsx`, `jobReadiness.test.tsx`, `learningPlan.test.tsx`, `roadmap.test.tsx`, `readinessSnapshot.test.tsx`, `mockInterview.test.tsx`, `studentIntelligence.test.tsx`, `adaptiveLearning.test.tsx`).
+  - Strict TypeScript type-checking (`tsc --noEmit`) passes with 0 errors.
+  - Production Vite bundle builds cleanly in ~12s.
+- **Database Personalization Migration**:
+  - Located at `supabase/migrations/20260415000000_student_profile_personalization.sql`.
+  - Safely extends `public.profiles` with `degree`, `semester`, `graduation_year`, `target_role`, `target_companies`, `skills`, `dsa_level`, `cs_fundamentals_level`, `aptitude_level`, and `communication_level`.
+- **Fault-Tolerant UX & Error Boundary**:
+  - Global `<ErrorBoundary>` catches render anomalies and provides one-click recovery.
+  - Decoupled `onAuthStateChange` eliminates deadlock/infinite loading states.
 - **Supabase Dashboard & OAuth Configuration**:
   - In **Authentication > URL Configuration**, ensure the Redirect Allow List includes:
     - `http://localhost:8081/**`
